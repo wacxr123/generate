@@ -27,7 +27,7 @@ class sub_ContextCiter(ContextCiter):
         generate_kwargs: Optional[Dict[str, Any]] = None,
         prompt_template = '',
     ) -> None:
-        super().__init__(self, model, tokenizer, context, query, generate_kwargs = generate_kwargs, prompt_template = prompt_template)
+        super().__init__(model, tokenizer, context, query, generate_kwargs = generate_kwargs, prompt_template = prompt_template)
 
     def _get_prompt_ids(
         self,
