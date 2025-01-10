@@ -1,17 +1,29 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import StoppingCriteria, StoppingCriteriaList
+import torch
 
 device='cuda:0'
 model_path = 'meta-llama/Llama-3.1-8B-Instruct'
 max_length = 1024
 num_votes = 1
 
-tokenizer = AutoTokenizer.from_pretrained(model_path)
-tokenizer.padding_side = 'right'
-tokenizer.pad_token = tokenizer.eos_token
+tokenizer = AutoTokenizer.from_pretrained(model_path, padding = False)
+# tokenizer.padding_side = 'right'
+# tokenizer.pad_token = tokenizer.eos_token
 
 model = AutoModelForCausalLM.from_pretrained(model_path).to(device)
-stop_words_ids = [
-tokenizer.encode(stop_word, add_prefix_space = False) for stop_word in ["###","#"]]
+stop_words_ids = [tokenizer.encode(stop_word) for stop_word in ["###","#"]]
+
+class StoppingCriteriaSub(StoppingCriteria):
+
+    def __init__(self, stops = []):
+      StoppingCriteria.__init__(self), 
+
+    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, stops = []):
+      self.stops = stops
+      for i in range(len(stops)):
+        self.stops = self.stops[i]
+stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(stops = stop_words_ids)])
 
 prompt_template = (
     "You are a math problem solver. Please answer the question step by step. At the begin of each step please signify the step No. in the form 'Step No.:'. For example, in the first step, you should write 'Step 1:' at the begining of the step\n"
@@ -31,7 +43,7 @@ outputs = model.generate(
     do_sample=True,
     top_k=32,
     temperature=0.7,
-    eos_token_id=tokenizer.eos_token_id
+    stopping_criteria=stopping_criteria
     #repetition_penalty=1.1,      
 )
 
