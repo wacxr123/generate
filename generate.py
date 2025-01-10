@@ -116,9 +116,8 @@ verifier_prompt_template = (
     "The to be verified step, context and Question are as follows\n"
     "Question:{Question}\n Context:{Context} \n to be verified step:{verified_step}\n"
     "Please answer yes or no to verify whether the to be verified step is correct or not based on the Question and Context.\n"
-    "Please give your reasons and write the answer within \\boxed\{\} , the answer could only be either \boxed\{yes\} or \boxed\{no\}."
 )
-
+verifier_prompt_template2 =  r"Please give your reasons and write the answer within \boxed{} , the answer could only be either \boxed{yes} or \boxed{no}."
 
 Question = "Janet’s ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market?\n"
 prompt = prompt_template+"Question:{}\n".format(Question)
@@ -132,7 +131,7 @@ while True:
     filtered_context = [context for context in extract_context if context not in prompt_template]
     generated_texts = cc.response
     Context = '\n'.join(filtered_context)
-    verify_prompt = verifier_prompt_template.format(Question = Question, Context = Context, verified_step = generated_texts)
+    verify_prompt = verifier_prompt_template.format(Question = Question, Context = Context, verified_step = generated_texts)+verifier_prompt_template2
     results = verify(model, tokenizer, verify_prompt)
     print(results)
     print(generated_texts)
