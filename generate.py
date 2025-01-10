@@ -1,6 +1,7 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformers import StoppingCriteria, StoppingCriteriaList
 import torch
+from context_cite import ContextCiter
 
 device='cuda:0'
 model_path = 'meta-llama/Llama-3.1-8B-Instruct'
@@ -38,21 +39,32 @@ prompt_template = (
 )
 prompt = prompt_template+"Question:{}\n".format("Janet’s ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market?\n")
 prompt_len = len(prompt)
+generate_kwargs = {
+    'max_length': max_length,
+    'num_return_sequences': num_votes,
+    'do_sample': True,
+    'top_k': 32,
+    'temperature': 0.7,
+    'stopping_criteria': stopping_criteria,
+}
 while True:
-    inputs = tokenizer(prompt, return_tensors="pt").to(device)
+    cc = ContextCiter(model, tokenizer, prompt, '', generate_kwargs=generate_kwargs, prompt_template='{context}')
+    # inputs = tokenizer(prompt, return_tensors="pt").to(device)
 
-    outputs = model.generate(
-        **inputs,
-        max_length=max_length,
-        num_return_sequences=num_votes,
-        do_sample=True,
-        top_k=32,
-        temperature=0.7,
-        stopping_criteria=stopping_criteria,
-        #repetition_penalty=1.1,      
-    )
+    # outputs = model.generate(
+    #     **inputs,
+    #     max_length=max_length,
+    #     num_return_sequences=num_votes,
+    #     do_sample=True,
+    #     top_k=32,
+    #     temperature=0.7,
+    #     stopping_criteria=stopping_criteria,
+    #     #repetition_penalty=1.1,      
+    # )
+    print(cc.response)
 
-    generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
+    # generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
+    generated_texts = cc.response
     print(generated_texts)
     prompt = generated_texts
     if r'\boxed' in prompt[0][prompt_len:]:
