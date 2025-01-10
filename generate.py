@@ -1,6 +1,7 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformers import StoppingCriteria, StoppingCriteriaList
 import torch
+from typing import Dict, Any, Optional, List
 from context_cite import ContextCiter
 
 device='cuda:0'
@@ -16,6 +17,33 @@ model = AutoModelForCausalLM.from_pretrained(model_path).to(device)
 stop_words = ["###"," ###", "#"]
 stop_words_ids = [tokenizer.encode(stop_word, add_special_tokens=False) for stop_word in stop_words]
 
+class sub_ContextCiter(ContextCiter):
+    def __init__(
+        self,
+        model: Any,
+        tokenizer: Any,
+        context: str,
+        query: str,
+        generate_kwargs: Optional[Dict[str, Any]] = None,
+        prompt_template = '',
+    ) -> None:
+        super().__init__(self, model, tokenizer, context, query, generate_kwargs = generate_kwargs, prompt_template = prompt_template)
+
+    def _get_prompt_ids(
+        self,
+        mask = None,
+        return_prompt: bool = False,
+    ):
+        context = self.partitioner.get_context(mask)
+        prompt = self.prompt_template.format(context=context, query=self.query)
+    
+        chat_prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False)
+
+        if return_prompt:
+            return chat_prompt_ids, prompt
+        else:
+            return chat_prompt_ids
+    
 class StoppingCriteriaSub(StoppingCriteria):
     def __init__(self, stops=None):
         super().__init__()
@@ -48,7 +76,7 @@ generate_kwargs = {
     'stopping_criteria': stopping_criteria,
 }
 while True:
-    cc = ContextCiter(model, tokenizer, prompt, '', generate_kwargs=generate_kwargs, prompt_template='{context}')
+    cc = sub_ContextCiter(model, tokenizer, prompt, '', generate_kwargs=generate_kwargs, prompt_template='{context}')
     # inputs = tokenizer(prompt, return_tensors="pt").to(device)
 
     # outputs = model.generate(
