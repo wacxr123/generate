@@ -93,6 +93,7 @@ while True:
     raw_results = cc.get_attributions()
     print(raw_results, type(raw_results))
     indices = raw_results>1e-7
+    print(indices)
     extract_context = cc.sources[indices]
     print(extract_context)
 
