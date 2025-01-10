@@ -3,6 +3,7 @@ from transformers import StoppingCriteria, StoppingCriteriaList
 import torch
 from typing import Dict, Any, Optional, List
 from context_cite import ContextCiter
+import numpy as np
 
 device='cuda:0'
 model_path = 'meta-llama/Llama-3.1-8B-Instruct'
@@ -89,7 +90,10 @@ while True:
     #     stopping_criteria=stopping_criteria,
     #     #repetition_penalty=1.1,      
     # )
-    print(cc.response)
+    raw_results = cc.get_attributions()
+    indices = raw_results>1e-7
+    extract_context = cc.sources[indices]
+    print(extract_context)
 
     # generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
     generated_texts = cc.response
