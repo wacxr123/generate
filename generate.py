@@ -58,5 +58,5 @@ while True:
     generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
     print(generated_texts)
     prompt = generated_texts
-    if '\boxed' in prompt:
+    if r'\boxed' in prompt:
         break
