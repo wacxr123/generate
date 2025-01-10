@@ -65,7 +65,7 @@ def generate(model, tokenizer, prompt):
 
     outputs = model.generate(
         **inputs,
-        max_length=max_length,
+        max_length=512,
         num_return_sequences=num_votes,
         do_sample=True,
         top_k=32,
@@ -74,6 +74,7 @@ def generate(model, tokenizer, prompt):
         #repetition_penalty=1.1,      
     )
     generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
+    print(generated_texts[0])
     return generated_texts[0] 
     
 def verify(model, tokenizer, prompt) -> bool:
