@@ -15,14 +15,16 @@ model = AutoModelForCausalLM.from_pretrained(model_path).to(device)
 stop_words_ids = [tokenizer.encode(stop_word) for stop_word in ["###","#"]]
 
 class StoppingCriteriaSub(StoppingCriteria):
+    def __init__(self, stops=None):
+        super().__init__()
+        self.stops = stops if stops is not None else []
 
-    def __init__(self, stops = []):
-      StoppingCriteria.__init__(self), 
+    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs):
+        for stop_ids in self.stops:
+            if torch.all((input_ids[0][-len(stop_ids):] == torch.tensor(stop_ids).to(input_ids.device))):
+                return True
+        return False
 
-    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, stops = []):
-      self.stops = stops
-      for i in range(len(stops)):
-        self.stops = self.stops[i]
 stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(stops = stop_words_ids)])
 
 prompt_template = (
