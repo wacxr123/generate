@@ -95,5 +95,5 @@ while True:
     generated_texts = cc.response
     print(generated_texts)
     prompt = prompt+generated_texts
-    if r'\boxed' in prompt[0][prompt_len:]:
+    if r'\boxed' in generated_texts:
         break
