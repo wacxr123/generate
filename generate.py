@@ -12,7 +12,7 @@ tokenizer = AutoTokenizer.from_pretrained(model_path, padding = False)
 # tokenizer.pad_token = tokenizer.eos_token
 
 model = AutoModelForCausalLM.from_pretrained(model_path).to(device)
-stop_words = ["###"]
+stop_words = ["###"," ###", "#"]
 stop_words_ids = [tokenizer.encode(stop_word, add_special_tokens=False) for stop_word in stop_words]
 
 class StoppingCriteriaSub(StoppingCriteria):
