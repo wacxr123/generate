@@ -94,6 +94,6 @@ while True:
     # generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
     generated_texts = cc.response
     print(generated_texts)
-    prompt = generated_texts
+    prompt = prompt+generated_texts
     if r'\boxed' in prompt[0][prompt_len:]:
         break
