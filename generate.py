@@ -37,7 +37,7 @@ prompt_template = (
     r"Please write the final answer with \boxed{} ###\n"
 )
 prompt = prompt_template+"Question:{}\n".format("Janet’s ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market?\n")
-    
+prompt_len = len(prompt)
 while True:
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
 
@@ -55,5 +55,5 @@ while True:
     generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
     print(generated_texts)
     prompt = generated_texts
-    if r'\boxed' in prompt[0]:
+    if r'\boxed' in prompt[0][prompt_len:]:
         break
