@@ -59,6 +59,22 @@ class StoppingCriteriaSub(StoppingCriteria):
                     if torch.all(input_ids[seq_idx][-len(stop_ids):] == stop_ids_tensor):
                         return True
         return False
+ 
+def generate(model, tokenizer, prompt):
+    inputs = tokenizer(prompt, return_tensors="pt").to(device)
+
+    outputs = model.generate(
+        **inputs,
+        max_length=max_length,
+        num_return_sequences=num_votes,
+        do_sample=True,
+        top_k=32,
+        temperature=0.7,
+        stopping_criteria=stopping_criteria,
+        #repetition_penalty=1.1,      
+    )
+    generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
+    return generated_texts[0] 
     
 def verify(model, tokenizer, prompt) -> bool:
     text = generate(model, tokenizer, prompt)
@@ -124,19 +140,5 @@ while True:
         break
     i+=1
     
-def generate(model, tokenizer, prompt):
-    inputs = tokenizer(prompt, return_tensors="pt").to(device)
 
-    outputs = model.generate(
-        **inputs,
-        max_length=max_length,
-        num_return_sequences=num_votes,
-        do_sample=True,
-        top_k=32,
-        temperature=0.7,
-        stopping_criteria=stopping_criteria,
-        #repetition_penalty=1.1,      
-    )
-    generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
-    return generated_texts[0]
 
