@@ -36,9 +36,8 @@ prompt_template = (
     "At the end of each step please output '###' to signify the end of the step.\n"
     r"Please write the final answer with \boxed{} ###\n"
 )
-prompt = prompt_template.append(
-        "Question:{}\n".format("Janet’s ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market?\n")
-    )
+prompt = prompt_template+"Question:{}\n".format("Janet’s ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market?\n")
+    
 while True:
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
 
