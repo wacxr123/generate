@@ -91,6 +91,7 @@ while True:
     #     #repetition_penalty=1.1,      
     # )
     raw_results = cc.get_attributions()
+    print(list(zip(cc.sources, raw_results))[:5])
     indices = np.where(raw_results > 1e-7)[0]
     print(cc.sources, type(cc.sources))
     extract_context = cc.sources[indices]
