@@ -93,7 +93,8 @@ while True:
     raw_results = cc.get_attributions()
     indices = np.where(raw_results > 1e-7)[0]
     extract_context = [cc.sources[int(i)] for i in indices]
-    print(extract_context)
+    filtered_context = [context for context in extract_context if context not in prompt_template]
+    print(filtered_context)
 
     # generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
     generated_texts = cc.response
