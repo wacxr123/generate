@@ -12,7 +12,8 @@ tokenizer = AutoTokenizer.from_pretrained(model_path, padding = False)
 # tokenizer.pad_token = tokenizer.eos_token
 
 model = AutoModelForCausalLM.from_pretrained(model_path).to(device)
-stop_words_ids = [tokenizer.encode(stop_word) for stop_word in ["###","#"]]
+stop_words = ["###"]
+stop_words_ids = [tokenizer.encode(stop_word, add_special_tokens=False) for stop_word in stop_words]
 
 class StoppingCriteriaSub(StoppingCriteria):
     def __init__(self, stops=None):
@@ -21,8 +22,11 @@ class StoppingCriteriaSub(StoppingCriteria):
 
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs):
         for stop_ids in self.stops:
-            if torch.all((input_ids[0][-len(stop_ids):] == torch.tensor(stop_ids).to(input_ids.device))):
-                return True
+            stop_ids_tensor = torch.tensor(stop_ids).to(input_ids.device)
+            for seq_idx in range(input_ids.shape[0]):
+                if input_ids[seq_idx].size(0) >= len(stop_ids):
+                    if torch.all(input_ids[seq_idx][-len(stop_ids):] == stop_ids_tensor):
+                        return True
         return False
 
 stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(stops = stop_words_ids)])
@@ -46,6 +50,7 @@ outputs = model.generate(
     top_k=32,
     temperature=0.7,
     stopping_criteria=stopping_criteria
+    pad_token_id=tokenizer.eos_token_id 
     #repetition_penalty=1.1,      
 )
 
