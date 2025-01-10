@@ -51,7 +51,6 @@ while True:
         top_k=32,
         temperature=0.7,
         stopping_criteria=stopping_criteria,
-        pad_token_id=tokenizer.eos_token_id 
         #repetition_penalty=1.1,      
     )
 
