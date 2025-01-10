@@ -91,6 +91,7 @@ while True:
     #     #repetition_penalty=1.1,      
     # )
     raw_results = cc.get_attributions()
+    print(raw_results, type(raw_results))
     indices = raw_results>1e-7
     extract_context = cc.sources[indices]
     print(extract_context)
