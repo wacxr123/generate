@@ -33,8 +33,8 @@ stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(stops = stop_words
 
 prompt_template = (
     "You are a math problem solver. Please answer the question step by step. At the begin of each step please signify the step No. in the form 'Step No.:'. "
-    "At the end of each step please output '###' to signify the end of the step.For example, in the first step, you should write in the form 'Step 1: ...\n ###' at the begining of the step\n\n"
-    r"Please write the final answer with \boxed{}\n###\n"
+    "At the end of each step please output '###' to signify the end of the step.For example, in the first step, you should write in the form 'Step 1: ...\n ###'for the first step\n\n"
+    r"Please write the final answer with \boxed{}\n"
 )
 prompt = prompt_template+"Question:{}\n".format("Janet’s ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market?\n")
     
