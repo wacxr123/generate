@@ -92,6 +92,7 @@ while True:
     # )
     raw_results = cc.get_attributions()
     indices = np.where(raw_results > 1e-7)[0]
+    print(cc.sources, type(cc.sources))
     extract_context = cc.sources[indices]
     print(extract_context)
 
