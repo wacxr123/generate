@@ -89,7 +89,7 @@ def verify(model, tokenizer, prompt) -> bool:
     if match:
         answer = match.group(1).strip().lower()
         # 返回True如果是yes，False如果是no
-        return answer == 'yes'
+        return answer == 'no'
     
     # 如果没有找到匹配（但有\boxed），返回True
     return True
@@ -116,7 +116,7 @@ verifier_prompt_template = (
     "The to be verified step, context and Question are as follows\n"
     "Question:{Question}\n Context:{Context} \n to be verified step:{verified_step}\n"
     "Please answer yes or no to verify whether the to be verified step is correct or not based on the Question and Context.\n"
-    "Please give your answer within \boxed"
+    "Please give your reasons and write the answer within \\boxed\{\} , the answer could only be either \boxed\{yes\} or \boxed\{no\}."
 )
 
 
