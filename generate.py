@@ -78,7 +78,7 @@ def generate(model, tokenizer, prompt):
     return generated_texts[0] 
     
 def verify(model, tokenizer, prompt) -> bool:
-    text = generate(model, tokenizer, prompt)
+    text = generate(model, tokenizer, prompt)[len(prompt):]
     if r'\boxed' not in text:
         return True
     
@@ -119,7 +119,7 @@ verifier_prompt_template = (
 )
 verifier_prompt_template2 =  r"Please give your reasons and write the answer within \boxed{} , the answer could only be either \boxed{yes} or \boxed{no}."
 
-Question = "Janet’s ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market?\n"
+Question = "How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?\n"
 prompt = prompt_template+"Question:{}\n".format(Question)
 prompt_len = len(prompt)
 i=0
