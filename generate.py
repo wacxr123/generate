@@ -164,7 +164,7 @@ regenerate_prompt_template = (
     "Please regenerate the last step based on the instruction:"
 )
 
-Question = "How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?\n"
+Question = "Find $x$ such that $\\lceil x \\rceil + x = \\dfrac{23}{7}$. Express $x$ as a common fraction.\n"
 prompt = prompt_template+"Question:{}\n".format(Question)
 prompt_len = len(prompt)
 i=0
