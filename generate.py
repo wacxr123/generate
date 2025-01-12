@@ -7,8 +7,8 @@ import numpy as np
 import re
 
 device='cuda:0'
-model_path = 'meta-llama/Llama-3.1-8B-Instruct'
-max_length = 1024
+max_new_tokens = 512
+verifier_max_new_tokens = 256
 num_votes = 1
 
 tokenizer = AutoTokenizer.from_pretrained(model_path, padding = False)
@@ -65,7 +65,7 @@ def generate(model, tokenizer, prompt):
 
     outputs = model.generate(
         **inputs,
-        max_length=512,
+        max_new_tokens=256,
         num_return_sequences=num_votes,
         do_sample=True,
         top_k=32,
@@ -97,7 +97,7 @@ def verify(model, tokenizer, prompt) -> bool:
 stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(stops = stop_words_ids)])
 
 generate_kwargs = {
-    'max_length': max_length,
+    'max_new_tokens': max_new_tokens,
     'num_return_sequences': num_votes,
     'do_sample': True,
     'top_k': 32,
@@ -117,7 +117,7 @@ verifier_prompt_template = (
     "Question:{Question}\n Context:{Context} \n to be verified step:{verified_step}\n"
     "Please answer yes or no to verify whether the to be verified step is correct or not based on the Question and Context.\n"
 )
-verifier_prompt_template2 =  r"Please give your reasons and write the answer within \boxed{} , the answer could only be either \boxed{yes} or \boxed{no}."
+verifier_prompt_template2 =  r"Please give your reasons and write the answer within \boxed{} , the answer could only be either \boxed{yes} or \boxed{no}. Your response template should be results:\boxed{yes} (or \boxed{yes})\n reasons:"
 
 Question = "How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?\n"
 prompt = prompt_template+"Question:{}\n".format(Question)
