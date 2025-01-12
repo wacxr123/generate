@@ -77,6 +77,25 @@ def generate(model, tokenizer, prompt):
     generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
     print(generated_texts[0])
     return generated_texts[0] 
+
+def extract_reasons(text: str) -> str:
+    """
+    提取文本中'reasons:'之后的内容
+    Args:
+        text: 包含reasons:的文本
+    Returns:
+        str: reasons后面的内容，如果没找到返回空字符串
+    """
+    # 使用正则表达式查找reasons:后的所有内容
+    pattern = r'reasons:(.*?)(?=\\boxed|$)'  # 匹配到下一个\boxed或文本结束
+    match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)  # DOTALL让.也能匹配换行符
+    
+    if match:
+        # 提取并清理文本
+        reasons = match.group(1).strip()
+        return reasons
+    
+    return ""
     
 def verify(model, tokenizer, prompt) -> bool:
     """
@@ -91,9 +110,10 @@ def verify(model, tokenizer, prompt) -> bool:
     # 获取生成的文本，去掉prompt部分
     text = generate(model, tokenizer, prompt)[len(prompt):]
     
+    reasons = extract_reasons(text)
     # 如果文本不含\boxed，返回True
     if r'\boxed' not in text:
-        return True
+        return True, reasons
     
     # 查找第一个\boxed{}中的内容
     pattern = r'\\boxed{([^}]*)}'
@@ -102,10 +122,10 @@ def verify(model, tokenizer, prompt) -> bool:
     if match:
         answer = match.group(1).strip().lower()
         # 返回True如果是yes，False如果是no
-        return answer == 'yes'
+        return answer == 'yes', reasons
     
     # 如果没有找到匹配（但有\boxed），返回True
-    return True
+    return True, reasons
 
 def count_steps(text: str) -> int:
     # 使用正则表达式查找所有包含"Step"的实例
@@ -143,12 +163,17 @@ Question = "How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}
 prompt = prompt_template+"Question:{}\n".format(Question)
 prompt_len = len(prompt)
 i=0
+regenerate = 0
 while True:
     cc = sub_ContextCiter(model, tokenizer, prompt, '', generate_kwargs=generate_kwargs, prompt_template='{context}')
     generated_texts = cc.response
     if count_steps(generated_texts)>=3:
         print('regenerating this step.')
-        continue
+        regenerate +=1
+        if regenerate<=2:
+            continue
+        
+    regenerate = 0
     raw_results = cc.get_attributions()
     indices = np.where(raw_results > 1e-7)[0]
     extract_context = [cc.sources[int(i)] for i in indices]
