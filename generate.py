@@ -114,11 +114,10 @@ prompt_template = (
 
 verifier_prompt_template = (
     "You are a math question verifier. you will be provided a step in solving a mathematical problem that needs validation. I will also give you the context from which this step is derived and specify what the mathematical problem is.\n"
-    "The to be verified step, context and Question are as follows\n"
     "Question:{Question}\n Context:{Context} \n to be verified step:{verified_step}\n"
-    "Please answer yes or no to verify whether the to be verified step is correct or not based on the Question and Context.\n"
+    "Please answer 'yes' or 'no' and the reasons to verify whether the to be verified step is correct or not based on the Question and Context.\n"
 )
-verifier_prompt_template2 =  r"Please give your reasons and write the answer within \boxed{} , the answer could only be either \boxed{yes} or \boxed{no}. Your response template should be results:\boxed{yes} (or \boxed{yes})\n reasons:"
+verifier_prompt_template2 =  r"Your response should be in the form of: results:\boxed{yes} (or \boxed{no})\n reasons:"
 
 Question = "How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?\n"
 prompt = prompt_template+"Question:{}\n".format(Question)
