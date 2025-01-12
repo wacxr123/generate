@@ -5,12 +5,19 @@ from typing import Dict, Any, Optional, List
 from context_cite import ContextCiter
 import numpy as np
 import re
+import jsonlines
+from tqdm import tqdm
+from itertools import islice
 
 device='cuda:0'
 max_new_tokens = 512
 verifier_max_new_tokens = 256
 model_path = "meta-llama/Llama-3.1-8B-Instruct"
 num_votes = 1
+input_file = "./math_testset_annotation.json"
+output_file = "./output1.jsonl"
+start_line = 0
+end_line = 5
 
 tokenizer = AutoTokenizer.from_pretrained(model_path, padding = False)
 # tokenizer.padding_side = 'right'
@@ -134,6 +141,35 @@ def count_steps(text: str) -> int:
     matches = re.findall(pattern, text)
     return len(matches)
 
+def extract_boxed_content(text: str) -> str:
+    """
+    提取\boxed{}中的内容，支持嵌套大括号
+    Args:
+        text: 包含\boxed{}的文本
+    Returns:
+        str: \boxed{}中的内容，如果没找到返回空字符串
+    """
+    # 添加调试打印
+    print("输入文本:", text)
+    if r'\boxed' not in text:
+        return ""
+    # 找到\boxed{后的位置
+    start_pos = text.find(r'\boxed{')
+    start_idx = start_pos + len(r'\boxed{')  # 使用len()更清晰
+    # 计数左右大括号来处理嵌套情况
+    count = 1
+    current_idx = start_idx
+    while count > 0 and current_idx < len(text):
+        if text[current_idx] == '{':
+            count += 1
+        elif text[current_idx] == '}':
+            count -= 1
+        current_idx += 1
+    if count == 0:
+        result = text[start_idx:current_idx - 1].strip()
+        return result
+    return ""
+
 
 stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(stops = stop_words_ids)])
 
@@ -164,51 +200,62 @@ regenerate_prompt_template = (
     "Please regenerate the last step based on the instruction:"
 )
 
-Question = "Find $x$ such that $\\lceil x \\rceil + x = \\dfrac{23}{7}$. Express $x$ as a common fraction.\n"
-prompt = prompt_template+"Question:{}\n".format(Question)
-prompt_len = len(prompt)
-i=0
-regenerate = 0
-refine = 0
-while True:
-    cc = sub_ContextCiter(model, tokenizer, prompt, '', generate_kwargs=generate_kwargs, prompt_template='{context}')
-    generated_texts = cc.response
-    if count_steps(generated_texts)>=3:
-        print('regenerating this step.')
-        regenerate +=1
-        if regenerate<=2:
-            continue
-        
-    regenerate = 0
-    raw_results = cc.get_attributions()
-    indices = np.where(raw_results > 1e-7)[0]
-    extract_context = [cc.sources[int(i)] for i in indices]
-    filtered_context = [context for context in extract_context if context not in prompt_template]
-    Context = '\n'.join(filtered_context)
-    verify_prompt = verifier_prompt_template.format(Question = Question, Context = Context, verified_step = generated_texts)+verifier_prompt_template2
-    results, reasons = verify(model, tokenizer, verify_prompt)
-    if results == False and refine<=2:
-        if refine==0:
-            prompt0 = prompt
-            prompt = prompt+regenerate_prompt_template+reasons
-            refine+=1
-            print('\nself-refining\n')
-            continue
-        else:
-            prompt = prompt0+regenerate_prompt_template+reasons
-            refine+=1
-            print('\nself-refining\n')
-            continue 
-    elif refine>0:
-        prompt = prompt0
+with jsonlines.open(input_file) as reader:
+    for item in tqdm(islice(reader, start_line, end_line)):
+        Question = item['question']
+        prompt = prompt_template+"Question:{}\n".format(Question)
+        prompt_len = len(prompt)
+        i=0
+        regenerate = 0
         refine = 0
-    
-    print('\nVerification bool results:', results)
-    print('\ngenerated steps:\n', generated_texts, end = '\n')
-    prompt = prompt+generated_texts
-    if r'\boxed' in generated_texts or i==30:
-        break
-    i+=1
-    
+        while True:
+            cc = sub_ContextCiter(model, tokenizer, prompt, '', generate_kwargs=generate_kwargs, prompt_template='{context}')
+            generated_texts = cc.response
+            if count_steps(generated_texts)>=3:
+                print('regenerating this step.')
+                regenerate +=1
+                if regenerate<=2:
+                    continue
+                
+            regenerate = 0
+            raw_results = cc.get_attributions()
+            indices = np.where(raw_results > 1e-7)[0]
+            extract_context = [cc.sources[int(i)] for i in indices]
+            filtered_context = [context for context in extract_context if context not in prompt_template]
+            Context = '\n'.join(filtered_context)
+            verify_prompt = verifier_prompt_template.format(Question = Question, Context = Context, verified_step = generated_texts)+verifier_prompt_template2
+            results, reasons = verify(model, tokenizer, verify_prompt)
+            if results == False and refine<=2:
+                if refine==0:
+                    prompt0 = prompt
+                    prompt = prompt+regenerate_prompt_template+reasons
+                    refine+=1
+                    print('\nself-refining\n')
+                    continue
+                else:
+                    prompt = prompt0+regenerate_prompt_template+reasons
+                    refine+=1
+                    print('\nself-refining\n')
+                    continue 
+            elif refine>0:
+                prompt = prompt0
+                refine = 0
+            
+            print('\nVerification bool results:', results)
+            print('\ngenerated steps:\n', generated_texts, end = '\n')
+            prompt = prompt+generated_texts
+            if r'\boxed' in generated_texts or i==30:
+                final_answer = extract_boxed_content(generated_texts)
+                output_item = {
+                'question': Question,
+                'answer': final_answer
+            }
+        
+                # 以追加模式写入结果
+                with jsonlines.open(output_file, mode='a') as writer:
+                    writer.write(output_item)
+                break
+            i+=1
+
 
 
