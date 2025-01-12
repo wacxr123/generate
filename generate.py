@@ -159,11 +159,16 @@ verifier_prompt_template = (
 )
 verifier_prompt_template2 =  r"Your response should be in the form of: results:\boxed{yes} (or \boxed{no})\n reasons:"
 
+regenerate_prompt_template = (
+    "Please regenerate the last step based on the instruction:"
+)
+
 Question = "How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?\n"
 prompt = prompt_template+"Question:{}\n".format(Question)
 prompt_len = len(prompt)
 i=0
 regenerate = 0
+refine = 0
 while True:
     cc = sub_ContextCiter(model, tokenizer, prompt, '', generate_kwargs=generate_kwargs, prompt_template='{context}')
     generated_texts = cc.response
@@ -180,7 +185,21 @@ while True:
     filtered_context = [context for context in extract_context if context not in prompt_template]
     Context = '\n'.join(filtered_context)
     verify_prompt = verifier_prompt_template.format(Question = Question, Context = Context, verified_step = generated_texts)+verifier_prompt_template2
-    results = verify(model, tokenizer, verify_prompt)
+    results, reasons = verify(model, tokenizer, verify_prompt)
+    if results == False and refine<=2:
+        if refine==0:
+            prompt0 = prompt
+            prompt = prompt+regenerate_prompt_template+reasons
+            refine+=1
+            continue
+        else:
+            prompt = prompt0+regenerate_prompt_template+reasons
+            refine+=1
+            continue 
+    else:
+        prompt = prompt0
+        refine = 0
+    
     print(results)
     print(generated_texts)
     prompt = prompt+generated_texts
