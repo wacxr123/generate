@@ -109,7 +109,7 @@ def verify(model, tokenizer, prompt) -> bool:
     """
     # 获取生成的文本，去掉prompt部分
     text = generate(model, tokenizer, prompt)[len(prompt):]
-    print('\n verification results:\n')
+    print('\n verification results:\n', text)
     
     reasons = extract_reasons(text)
     # 如果文本不含\boxed，返回True
