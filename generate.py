@@ -145,6 +145,7 @@ prompt_len = len(prompt)
 i=0
 while True:
     cc = sub_ContextCiter(model, tokenizer, prompt, '', generate_kwargs=generate_kwargs, prompt_template='{context}')
+    generated_texts = cc.response
     if count_steps(generated_texts)>=3:
         print('regenerating this step.')
         continue
@@ -152,7 +153,6 @@ while True:
     indices = np.where(raw_results > 1e-7)[0]
     extract_context = [cc.sources[int(i)] for i in indices]
     filtered_context = [context for context in extract_context if context not in prompt_template]
-    generated_texts = cc.response
     Context = '\n'.join(filtered_context)
     verify_prompt = verifier_prompt_template.format(Question = Question, Context = Context, verified_step = generated_texts)+verifier_prompt_template2
     results = verify(model, tokenizer, verify_prompt)
