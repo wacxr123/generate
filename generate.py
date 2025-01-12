@@ -9,6 +9,7 @@ import re
 device='cuda:0'
 max_new_tokens = 512
 verifier_max_new_tokens = 256
+model_path = "meta-llama/Llama-3.1-8B-Instruct"
 num_votes = 1
 
 tokenizer = AutoTokenizer.from_pretrained(model_path, padding = False)
