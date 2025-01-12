@@ -75,7 +75,7 @@ def generate(model, tokenizer, prompt):
         #repetition_penalty=1.1,      
     )
     generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
-    print(generated_texts[0])
+    # print(generated_texts[0])
     return generated_texts[0] 
 
 def extract_reasons(text: str) -> str:
@@ -109,6 +109,7 @@ def verify(model, tokenizer, prompt) -> bool:
     """
     # 获取生成的文本，去掉prompt部分
     text = generate(model, tokenizer, prompt)[len(prompt):]
+    print('\n verification results:\n')
     
     reasons = extract_reasons(text)
     # 如果文本不含\boxed，返回True
@@ -191,17 +192,19 @@ while True:
             prompt0 = prompt
             prompt = prompt+regenerate_prompt_template+reasons
             refine+=1
+            print('\nself-refining\n')
             continue
         else:
             prompt = prompt0+regenerate_prompt_template+reasons
             refine+=1
+            print('\nself-refining\n')
             continue 
     elif refine>0:
         prompt = prompt0
         refine = 0
     
-    print(results)
-    print(generated_texts)
+    print('\nVerification bool results:', results)
+    print('\ngenerated steps:\n', generated_texts, end = '\n')
     prompt = prompt+generated_texts
     if r'\boxed' in generated_texts or i==30:
         break
