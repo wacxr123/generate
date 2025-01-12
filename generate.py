@@ -116,7 +116,7 @@ verifier_prompt_template = (
     "You are a math question verifier. you will be provided a step in solving a mathematical problem that needs validation. I will also give you the context from which this step is derived and specify what the mathematical problem is. "
     "The to be verified step is only one step for the solution process, so you don't need to consider whether the step solves the question or not.\n"
     "Question:{Question}\n Context:{Context} \n to be verified step:{verified_step}\n"
-    "Please answer 'yes' or 'no' and the reasons to verify whether the to be verified step is correct or not based on the Question and Context.\n"
+    "Please answer 'yes' or 'no' and the reasons to verify whether the to be verified step can be derived from the Question and Context without hallucination or error.\n"
 )
 verifier_prompt_template2 =  r"Your response should be in the form of: results:\boxed{yes} (or \boxed{no})\n reasons:"
 
