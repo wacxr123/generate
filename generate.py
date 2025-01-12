@@ -79,18 +79,30 @@ def generate(model, tokenizer, prompt):
     return generated_texts[0] 
     
 def verify(model, tokenizer, prompt) -> bool:
+    """
+    生成文本并检查第一个\boxed{}中的答案
+    Args:
+        model: 模型
+        tokenizer: 分词器
+        prompt: 输入提示
+    Returns:
+        bool: True 如果是 yes 或没有 \boxed，False 如果是 no
+    """
+    # 获取生成的文本，去掉prompt部分
     text = generate(model, tokenizer, prompt)[len(prompt):]
+    
+    # 如果文本不含\boxed，返回True
     if r'\boxed' not in text:
         return True
     
-    # 查找\boxed{}中的内容
+    # 查找第一个\boxed{}中的内容
     pattern = r'\\boxed{([^}]*)}'
     match = re.search(pattern, text)
     
     if match:
         answer = match.group(1).strip().lower()
         # 返回True如果是yes，False如果是no
-        return answer == 'no'
+        return answer == 'yes'
     
     # 如果没有找到匹配（但有\boxed），返回True
     return True
@@ -133,14 +145,14 @@ prompt_len = len(prompt)
 i=0
 while True:
     cc = sub_ContextCiter(model, tokenizer, prompt, '', generate_kwargs=generate_kwargs, prompt_template='{context}')
+    if count_steps(generated_texts)>=3:
+        print('regenerating this step.')
+        continue
     raw_results = cc.get_attributions()
     indices = np.where(raw_results > 1e-7)[0]
     extract_context = [cc.sources[int(i)] for i in indices]
     filtered_context = [context for context in extract_context if context not in prompt_template]
     generated_texts = cc.response
-    if count_steps(generated_texts)>=3:
-        print('regenerating this step.')
-        continue
     Context = '\n'.join(filtered_context)
     verify_prompt = verifier_prompt_template.format(Question = Question, Context = Context, verified_step = generated_texts)+verifier_prompt_template2
     results = verify(model, tokenizer, verify_prompt)
