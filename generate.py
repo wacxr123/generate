@@ -196,7 +196,7 @@ while True:
             prompt = prompt0+regenerate_prompt_template+reasons
             refine+=1
             continue 
-    else:
+    elif refine>0:
         prompt = prompt0
         refine = 0
     
