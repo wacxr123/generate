@@ -95,6 +95,13 @@ def verify(model, tokenizer, prompt) -> bool:
     # 如果没有找到匹配（但有\boxed），返回True
     return True
 
+def count_steps(text: str) -> int:
+    # 使用正则表达式查找所有包含"Step"的实例
+    pattern = r'Step \d+'
+    matches = re.findall(pattern, text)
+    return len(matches)
+
+
 stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(stops = stop_words_ids)])
 
 generate_kwargs = {
@@ -131,6 +138,9 @@ while True:
     extract_context = [cc.sources[int(i)] for i in indices]
     filtered_context = [context for context in extract_context if context not in prompt_template]
     generated_texts = cc.response
+    if count_steps(generated_texts)>=3:
+        print('regenerating this step.')
+        continue
     Context = '\n'.join(filtered_context)
     verify_prompt = verifier_prompt_template.format(Question = Question, Context = Context, verified_step = generated_texts)+verifier_prompt_template2
     results = verify(model, tokenizer, verify_prompt)
