@@ -6,7 +6,7 @@ from context_cite import ContextCiter
 import numpy as np
 import re
 import jsonlines
-from tqdm import tqdm
+from tqdm import tnrange
 from itertools import islice
 
 device='cuda:0'
@@ -201,7 +201,7 @@ regenerate_prompt_template = (
 )
 
 with jsonlines.open(input_file) as reader:
-    for item in tqdm(islice(reader, start_line, end_line)):
+    for item in tnrange(islice(reader, start_line, end_line)):
         Question = item['question']
         prompt = prompt_template+"Question:{}\n".format(Question)
         prompt_len = len(prompt)
