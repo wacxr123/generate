@@ -80,12 +80,10 @@ class StoppingCriteriaSub(StoppingCriteria):
 
 def generate(model, tokenizer, prompt):
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
-    input_ids=tokenizer.encode(prompt, return_tensors="pt")
-    attention_mask=torch.ones(input_ids.shape, dtype=torch.long, device=device)
     
     outputs = model.generate(
         **inputs,
-        attention_mask=attention_mask,
+        attention_mask=inputs['attention_mask'],
         pad_token_id=tokenizer.eos_token_id,
         max_new_tokens=256,
         num_return_sequences=num_votes,
