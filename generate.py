@@ -8,6 +8,7 @@ import re
 import jsonlines
 from tqdm import tqdm
 from itertools import islice
+import random
 
 device = "cuda:3"
 max_new_tokens = 512
@@ -15,9 +16,8 @@ verifier_max_new_tokens = 256
 model_path = "meta-llama/Llama-3.1-8B-Instruct"
 num_votes = 1
 input_file = "./math_testset_annotation.jsonl"
-output_file = "./output_z_3.jsonl"
-start_line = 1125
-end_line = 1399
+output_file = "./output_z_cxr.jsonl"
+
 
 tokenizer = AutoTokenizer.from_pretrained(model_path, padding=False)
 # tokenizer.padding_side = 'right'
@@ -82,7 +82,7 @@ def generate(model, tokenizer, prompt):
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
 
     outputs = model.generate(
-        inputs['input_ids'],
+        inputs.input_ids,
         attention_mask=inputs['attention_mask'],
         pad_token_id=tokenizer.eos_token_id,
         max_new_tokens=256,
@@ -214,8 +214,22 @@ verifier_prompt_template2 = r"Your response should be in the form of: results:\b
 
 regenerate_prompt_template = "Please regenerate the last step based on the instruction:"
 
+# First count total lines in file
+total_lines = sum(1 for line in jsonlines.open(input_file))
+
+# Randomly choose line numbers (e.g. 50 samples)
+num_samples = 50 
+sampled_lines = sorted(random.sample(range(total_lines), num_samples))
+
+# Save sampled line numbers
+with open('sampled_lines.txt', 'w') as f:
+    f.write('\n'.join(map(str, sampled_lines)))
+
+# Read only the sampled lines
 with jsonlines.open(input_file) as reader:
-    for item in tqdm(islice(reader, start_line, end_line)):
+    for line_num, item in tqdm(enumerate(reader)):
+        if line_num not in sampled_lines:
+            continue
         Question = item["question"]
         prompt = prompt_template + "Question:{}\n".format(Question)
         prompt_len = len(prompt)
@@ -269,8 +283,9 @@ with jsonlines.open(input_file) as reader:
             if r"\boxed" in generated_texts or i == 30:
                 final_answer = extract_boxed_content(generated_texts)
                 output_item = {"question": Question, "answer": final_answer}
-                # 以追加模式写入结果
-                with jsonlines.open(output_file, mode="a") as writer:
+                # Use write mode ('w') for first item, append ('a') for others
+                mode = "w" if line_num == sampled_lines[0] else "a"
+                with jsonlines.open(output_file, mode=mode) as writer:
                     writer.write(output_item)
                 break
             i += 1
