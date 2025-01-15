@@ -9,21 +9,25 @@ import jsonlines
 from tqdm import tqdm
 from itertools import islice
 
-device='cuda:0'
+device='cuda:3'
 max_new_tokens = 512
 verifier_max_new_tokens = 256
 model_path = "meta-llama/Llama-3.1-8B-Instruct"
 num_votes = 1
 input_file = "./math_testset_annotation.jsonl"
-output_file = "./output1.jsonl"
-start_line = 0
-end_line = 5
+output_file = "./output_z_3.jsonl"
+start_line = 1125
+end_line = 1399
 
 tokenizer = AutoTokenizer.from_pretrained(model_path, padding = False)
 # tokenizer.padding_side = 'right'
 # tokenizer.pad_token = tokenizer.eos_token
 
-model = AutoModelForCausalLM.from_pretrained(model_path).to(device)
+model = AutoModelForCausalLM.from_pretrained(model_path, 
+        torch_dtype=torch.bfloat16, 
+        ##low_cpu_mem_usage=True,
+        #device_map="auto"
+        ).to(device)
 stop_words = ["###"," ###", "#"]
 stop_words_ids = [tokenizer.encode(stop_word, add_special_tokens=False) for stop_word in stop_words]
 
@@ -210,7 +214,10 @@ with jsonlines.open(input_file) as reader:
         refine = 0
         while True:
             cc = sub_ContextCiter(model, tokenizer, prompt, '', generate_kwargs=generate_kwargs, prompt_template='{context}')
-            generated_texts = cc.response
+            try:
+                generated_texts = cc.response
+            except:
+                print("none type")
             if count_steps(generated_texts)>=3:
                 print('regenerating this step.')
                 regenerate +=1
