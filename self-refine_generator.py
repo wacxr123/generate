@@ -222,7 +222,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--num', type=int, default=1, help='Number of samples')
 args = parser.parse_args()
 num_samples = args.num
-output_file = "./self-refine_sampling"+num_samples+"_result.jsonl"
+output_file = "./self-refine_sampling_cnt"+str(num_samples)+"_result.jsonl"
 sampled_lines = sorted(random.sample(range(total_lines), num_samples))
 
 # Save sampled line numbers
