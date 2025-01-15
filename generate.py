@@ -256,13 +256,9 @@ with jsonlines.open(input_file) as reader:
                 output_item = {
                 'question': Question,
                 'answer': final_answer
-            }
-        
+                }
                 # 以追加模式写入结果
                 with jsonlines.open(output_file, mode='a') as writer:
                     writer.write(output_item)
                 break
             i+=1
-
-
-
