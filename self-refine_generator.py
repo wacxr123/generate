@@ -9,6 +9,7 @@ import jsonlines
 from tqdm import tqdm
 from itertools import islice
 import random
+import argparse
 
 device = "cuda:3"
 max_new_tokens = 512
@@ -217,8 +218,11 @@ regenerate_prompt_template = "Please regenerate the last step based on the instr
 # First count total lines in file
 total_lines = sum(1 for line in jsonlines.open(input_file))
 
-# Randomly choose line numbers
-num_samples = 100
+# Parse command line arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('--num', type=int, default=1, help='Number of samples')
+args = parser.parse_args()
+num_samples = args.num
 sampled_lines = sorted(random.sample(range(total_lines), num_samples))
 
 # Save sampled line numbers
