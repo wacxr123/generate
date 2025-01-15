@@ -17,7 +17,6 @@ verifier_max_new_tokens = 256
 model_path = "meta-llama/Llama-3.1-8B-Instruct"
 num_votes = 1
 input_file = "./math_testset_annotation.jsonl"
-output_file = "./self-refine_sampling50_result.jsonl"
 
 
 tokenizer = AutoTokenizer.from_pretrained(model_path, padding=False)
@@ -223,6 +222,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--num', type=int, default=1, help='Number of samples')
 args = parser.parse_args()
 num_samples = args.num
+output_file = "./self-refine_sampling"+num_samples+"_result.jsonl"
 sampled_lines = sorted(random.sample(range(total_lines), num_samples))
 
 # Save sampled line numbers
