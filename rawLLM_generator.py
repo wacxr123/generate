@@ -33,50 +33,6 @@ stop_words = ["###", " ###", "#"]
 stop_words_ids = [tokenizer.encode(stop_word, add_special_tokens=False) for stop_word in stop_words]
 
 
-class sub_ContextCiter(ContextCiter):
-    def __init__(
-        self,
-        model: Any,
-        tokenizer: Any,
-        context: str,
-        query: str,
-        generate_kwargs: Optional[Dict[str, Any]] = None,
-        prompt_template="",
-    ) -> None:
-        super().__init__(
-            model, tokenizer, context, query, generate_kwargs=generate_kwargs, prompt_template=prompt_template
-        )
-
-    def _get_prompt_ids(
-        self,
-        mask=None,
-        return_prompt: bool = False,
-    ):
-        context = self.partitioner.get_context(mask)
-        prompt = self.prompt_template.format(context=context, query=self.query)
-
-        chat_prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False)
-
-        if return_prompt:
-            return chat_prompt_ids, prompt
-        else:
-            return chat_prompt_ids
-
-
-class StoppingCriteriaSub(StoppingCriteria):
-    def __init__(self, stops=None):
-        super().__init__()
-        self.stops = stops if stops is not None else []
-
-    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs):
-        for stop_ids in self.stops:
-            stop_ids_tensor = torch.tensor(stop_ids).to(input_ids.device)
-            for seq_idx in range(input_ids.shape[0]):
-                if input_ids[seq_idx].size(0) >= len(stop_ids):
-                    if torch.all(input_ids[seq_idx][-len(stop_ids) :] == stop_ids_tensor):
-                        return True
-        return False
-
 
 def generate(model, tokenizer, prompt):
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
@@ -118,38 +74,6 @@ def extract_reasons(text: str) -> str:
     return ""
 
 
-def verify(model, tokenizer, prompt) -> bool:
-    """
-    生成文本并检查第一个\boxed{}中的答案
-    Args:
-        model: 模型
-        tokenizer: 分词器
-        prompt: 输入提示
-    Returns:
-        bool: True 如果是 yes 或没有 \boxed，False 如果是 no
-    """
-    # 获取生成的文本，去掉prompt部分
-    text = generate(model, tokenizer, prompt)[len(prompt) :]
-    print("\n verification results:\n", text)
-
-    reasons = extract_reasons(text)
-    # 如果文本不含\boxed，返回True
-    if r"\boxed" not in text:
-        return True, reasons
-
-    # 查找第一个\boxed{}中的内容
-    pattern = r"\\boxed{([^}]*)}"
-    match = re.search(pattern, text)
-
-    if match:
-        answer = match.group(1).strip().lower()
-        # 返回True如果是yes，False如果是no
-        return answer == "yes", reasons
-
-    # 如果没有找到匹配（但有\boxed），返回True
-    return True, reasons
-
-
 def count_steps(text: str) -> int:
     # 使用正则表达式查找所有包含"Step"的实例
     pattern = r"Step \d+"
@@ -187,7 +111,6 @@ def extract_boxed_content(text: str) -> str:
     return ""
 
 
-stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(stops=stop_words_ids)])
 
 generate_kwargs = {
     "max_new_tokens": max_new_tokens,
@@ -195,7 +118,6 @@ generate_kwargs = {
     "do_sample": True,
     "top_k": 32,
     "temperature": 0.7,
-    "stopping_criteria": stopping_criteria,
 }
 
 prompt_template = (
@@ -234,24 +156,7 @@ with jsonlines.open(input_file) as reader:
         prompt = prompt_template + "Question:{}\n".format(Question)
         prompt_len = len(prompt)
         i = 0
-        regenerate = 0
-        refine = 0
         while True:
-            cc = sub_ContextCiter(
-                model, tokenizer, prompt, "", generate_kwargs=generate_kwargs, prompt_template="{context}"
-            )
-            try:
-                generated_texts = cc.response
-            except:
-                print("none type")
-            if count_steps(generated_texts) >= 3:
-                print("regenerating this step.")
-                regenerate += 1
-                if regenerate <= 2:
-                    continue
-
-            regenerate = 0
-            raw_results = cc.get_attributions()
             indices = np.where(raw_results > 1e-7)[0]
             extract_context = [cc.sources[int(i)] for i in indices]
             filtered_context = [context for context in extract_context if context not in prompt_template]
@@ -265,14 +170,7 @@ with jsonlines.open(input_file) as reader:
                 if refine == 0:
                     prompt0 = prompt
                     prompt = prompt + regenerate_prompt_template + reasons
-                    refine += 1
-                    print("\nself-refining\n")
-                    continue
-                else:
-                    prompt = prompt0 + regenerate_prompt_template + reasons
-                    refine += 1
-                    print("\nself-refining\n")
-                    continue
+
             elif refine > 0:
                 prompt = prompt0
                 refine = 0
