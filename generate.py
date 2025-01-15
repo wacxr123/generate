@@ -80,9 +80,9 @@ class StoppingCriteriaSub(StoppingCriteria):
 
 def generate(model, tokenizer, prompt):
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
-    
+
     outputs = model.generate(
-        **inputs,
+        inputs['input_ids'],
         attention_mask=inputs['attention_mask'],
         pad_token_id=tokenizer.eos_token_id,
         max_new_tokens=256,
