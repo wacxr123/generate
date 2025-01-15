@@ -9,7 +9,7 @@ import jsonlines
 from tqdm import tqdm
 from itertools import islice
 
-device='cuda:3'
+device = "cuda:3"
 max_new_tokens = 512
 verifier_max_new_tokens = 256
 model_path = "meta-llama/Llama-3.1-8B-Instruct"
@@ -19,17 +19,19 @@ output_file = "./output_z_3.jsonl"
 start_line = 1125
 end_line = 1399
 
-tokenizer = AutoTokenizer.from_pretrained(model_path, padding = False)
+tokenizer = AutoTokenizer.from_pretrained(model_path, padding=False)
 # tokenizer.padding_side = 'right'
 # tokenizer.pad_token = tokenizer.eos_token
 
-model = AutoModelForCausalLM.from_pretrained(model_path, 
-        torch_dtype=torch.bfloat16, 
-        ##low_cpu_mem_usage=True,
-        #device_map="auto"
-        ).to(device)
-stop_words = ["###"," ###", "#"]
+model = AutoModelForCausalLM.from_pretrained(
+    model_path,
+    torch_dtype=torch.bfloat16,  # why half presision here
+    ##low_cpu_mem_usage=True,
+    # device_map="auto"
+).to(device)
+stop_words = ["###", " ###", "#"]
 stop_words_ids = [tokenizer.encode(stop_word, add_special_tokens=False) for stop_word in stop_words]
+
 
 class sub_ContextCiter(ContextCiter):
     def __init__(
@@ -39,25 +41,28 @@ class sub_ContextCiter(ContextCiter):
         context: str,
         query: str,
         generate_kwargs: Optional[Dict[str, Any]] = None,
-        prompt_template = '',
+        prompt_template="",
     ) -> None:
-        super().__init__(model, tokenizer, context, query, generate_kwargs = generate_kwargs, prompt_template = prompt_template)
+        super().__init__(
+            model, tokenizer, context, query, generate_kwargs=generate_kwargs, prompt_template=prompt_template
+        )
 
     def _get_prompt_ids(
         self,
-        mask = None,
+        mask=None,
         return_prompt: bool = False,
     ):
         context = self.partitioner.get_context(mask)
         prompt = self.prompt_template.format(context=context, query=self.query)
-    
+
         chat_prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False)
 
         if return_prompt:
             return chat_prompt_ids, prompt
         else:
             return chat_prompt_ids
-    
+
+
 class StoppingCriteriaSub(StoppingCriteria):
     def __init__(self, stops=None):
         super().__init__()
@@ -68,26 +73,32 @@ class StoppingCriteriaSub(StoppingCriteria):
             stop_ids_tensor = torch.tensor(stop_ids).to(input_ids.device)
             for seq_idx in range(input_ids.shape[0]):
                 if input_ids[seq_idx].size(0) >= len(stop_ids):
-                    if torch.all(input_ids[seq_idx][-len(stop_ids):] == stop_ids_tensor):
+                    if torch.all(input_ids[seq_idx][-len(stop_ids) :] == stop_ids_tensor):
                         return True
         return False
- 
+
+
 def generate(model, tokenizer, prompt):
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
-
+    input_ids=tokenizer.encode(prompt, return_tensors="pt")
+    attention_mask=torch.ones(input_ids.shape, dtype=torch.long, device=device)
+    
     outputs = model.generate(
         **inputs,
+        attention_mask=attention_mask,
+        pad_token_id=tokenizer.eos_token_id,
         max_new_tokens=256,
         num_return_sequences=num_votes,
         do_sample=True,
         top_k=32,
         temperature=0.7,
         stopping_criteria=stopping_criteria,
-        #repetition_penalty=1.1,      
+        # repetition_penalty=1.1,
     )
     generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
     # print(generated_texts[0])
-    return generated_texts[0] 
+    return generated_texts[0]
+
 
 def extract_reasons(text: str) -> str:
     """
@@ -98,16 +109,17 @@ def extract_reasons(text: str) -> str:
         str: reasons后面的内容，如果没找到返回空字符串
     """
     # 使用正则表达式查找reasons:后的所有内容
-    pattern = r'reasons:(.*?)(?=\\boxed|$)'  # 匹配到下一个\boxed或文本结束
+    pattern = r"reasons:(.*?)(?=\\boxed|$)"  # 匹配到下一个\boxed或文本结束
     match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)  # DOTALL让.也能匹配换行符
-    
+
     if match:
         # 提取并清理文本
         reasons = match.group(1).strip()
         return reasons
-    
+
     return ""
-    
+
+
 def verify(model, tokenizer, prompt) -> bool:
     """
     生成文本并检查第一个\boxed{}中的答案
@@ -119,31 +131,33 @@ def verify(model, tokenizer, prompt) -> bool:
         bool: True 如果是 yes 或没有 \boxed，False 如果是 no
     """
     # 获取生成的文本，去掉prompt部分
-    text = generate(model, tokenizer, prompt)[len(prompt):]
-    print('\n verification results:\n', text)
-    
+    text = generate(model, tokenizer, prompt)[len(prompt) :]
+    print("\n verification results:\n", text)
+
     reasons = extract_reasons(text)
     # 如果文本不含\boxed，返回True
-    if r'\boxed' not in text:
+    if r"\boxed" not in text:
         return True, reasons
-    
+
     # 查找第一个\boxed{}中的内容
-    pattern = r'\\boxed{([^}]*)}'
+    pattern = r"\\boxed{([^}]*)}"
     match = re.search(pattern, text)
-    
+
     if match:
         answer = match.group(1).strip().lower()
         # 返回True如果是yes，False如果是no
-        return answer == 'yes', reasons
-    
+        return answer == "yes", reasons
+
     # 如果没有找到匹配（但有\boxed），返回True
     return True, reasons
 
+
 def count_steps(text: str) -> int:
     # 使用正则表达式查找所有包含"Step"的实例
-    pattern = r'Step \d+'
+    pattern = r"Step \d+"
     matches = re.findall(pattern, text)
     return len(matches)
+
 
 def extract_boxed_content(text: str) -> str:
     """
@@ -155,35 +169,35 @@ def extract_boxed_content(text: str) -> str:
     """
     # 添加调试打印
     print("输入文本:", text)
-    if r'\boxed' not in text:
+    if r"\boxed" not in text:
         return ""
     # 找到\boxed{后的位置
-    start_pos = text.find(r'\boxed{')
-    start_idx = start_pos + len(r'\boxed{')  # 使用len()更清晰
+    start_pos = text.find(r"\boxed{")
+    start_idx = start_pos + len(r"\boxed{")  # 使用len()更清晰
     # 计数左右大括号来处理嵌套情况
     count = 1
     current_idx = start_idx
     while count > 0 and current_idx < len(text):
-        if text[current_idx] == '{':
+        if text[current_idx] == "{":
             count += 1
-        elif text[current_idx] == '}':
+        elif text[current_idx] == "}":
             count -= 1
         current_idx += 1
     if count == 0:
-        result = text[start_idx:current_idx - 1].strip()
+        result = text[start_idx : current_idx - 1].strip()
         return result
     return ""
 
 
-stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(stops = stop_words_ids)])
+stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(stops=stop_words_ids)])
 
 generate_kwargs = {
-    'max_new_tokens': max_new_tokens,
-    'num_return_sequences': num_votes,
-    'do_sample': True,
-    'top_k': 32,
-    'temperature': 0.7,
-    'stopping_criteria': stopping_criteria,
+    "max_new_tokens": max_new_tokens,
+    "num_return_sequences": num_votes,
+    "do_sample": True,
+    "top_k": 32,
+    "temperature": 0.7,
+    "stopping_criteria": stopping_criteria,
 }
 
 prompt_template = (
@@ -198,67 +212,67 @@ verifier_prompt_template = (
     "Question:{Question}\n Context:{Context} \n to be verified step:{verified_step}\n"
     "Please answer 'yes' or 'no' and the reasons to verify whether the to be verified step can be derived from the Question and Context without hallucination or error.\n"
 )
-verifier_prompt_template2 =  r"Your response should be in the form of: results:\boxed{yes} (or \boxed{no})\n reasons:"
+verifier_prompt_template2 = r"Your response should be in the form of: results:\boxed{yes} (or \boxed{no})\n reasons:"
 
-regenerate_prompt_template = (
-    "Please regenerate the last step based on the instruction:"
-)
+regenerate_prompt_template = "Please regenerate the last step based on the instruction:"
 
 with jsonlines.open(input_file) as reader:
     for item in tqdm(islice(reader, start_line, end_line)):
-        Question = item['question']
-        prompt = prompt_template+"Question:{}\n".format(Question)
+        Question = item["question"]
+        prompt = prompt_template + "Question:{}\n".format(Question)
         prompt_len = len(prompt)
-        i=0
+        i = 0
         regenerate = 0
         refine = 0
         while True:
-            cc = sub_ContextCiter(model, tokenizer, prompt, '', generate_kwargs=generate_kwargs, prompt_template='{context}')
+            cc = sub_ContextCiter(
+                model, tokenizer, prompt, "", generate_kwargs=generate_kwargs, prompt_template="{context}"
+            )
             try:
                 generated_texts = cc.response
             except:
                 print("none type")
-            if count_steps(generated_texts)>=3:
-                print('regenerating this step.')
-                regenerate +=1
-                if regenerate<=2:
+            if count_steps(generated_texts) >= 3:
+                print("regenerating this step.")
+                regenerate += 1
+                if regenerate <= 2:
                     continue
-                
+
             regenerate = 0
             raw_results = cc.get_attributions()
             indices = np.where(raw_results > 1e-7)[0]
             extract_context = [cc.sources[int(i)] for i in indices]
             filtered_context = [context for context in extract_context if context not in prompt_template]
-            Context = '\n'.join(filtered_context)
-            verify_prompt = verifier_prompt_template.format(Question = Question, Context = Context, verified_step = generated_texts)+verifier_prompt_template2
+            Context = "\n".join(filtered_context)
+            verify_prompt = (
+                verifier_prompt_template.format(Question=Question, Context=Context, verified_step=generated_texts)
+                + verifier_prompt_template2
+            )
             results, reasons = verify(model, tokenizer, verify_prompt)
-            if results == False and refine<=2:
-                if refine==0:
+            if results == False and refine <= 2:
+                if refine == 0:
                     prompt0 = prompt
-                    prompt = prompt+regenerate_prompt_template+reasons
-                    refine+=1
-                    print('\nself-refining\n')
+                    prompt = prompt + regenerate_prompt_template + reasons
+                    refine += 1
+                    print("\nself-refining\n")
                     continue
                 else:
-                    prompt = prompt0+regenerate_prompt_template+reasons
-                    refine+=1
-                    print('\nself-refining\n')
-                    continue 
-            elif refine>0:
+                    prompt = prompt0 + regenerate_prompt_template + reasons
+                    refine += 1
+                    print("\nself-refining\n")
+                    continue
+            elif refine > 0:
                 prompt = prompt0
                 refine = 0
-            
-            print('\nVerification bool results:', results)
-            print('\ngenerated steps:\n', generated_texts, end = '\n')
-            prompt = prompt+generated_texts
-            if r'\boxed' in generated_texts or i==30:
+
+            print("\nVerification bool results:", results)
+            print("\ngenerated steps:\n", generated_texts, end="\n")
+            prompt = prompt + generated_texts
+            if r"\boxed" in generated_texts or i == 30:
                 final_answer = extract_boxed_content(generated_texts)
-                output_item = {
-                'question': Question,
-                'answer': final_answer
-                }
+                output_item = {"question": Question, "answer": final_answer}
                 # 以追加模式写入结果
-                with jsonlines.open(output_file, mode='a') as writer:
+                with jsonlines.open(output_file, mode="a") as writer:
                     writer.write(output_item)
                 break
-            i+=1
+            i += 1
