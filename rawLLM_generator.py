@@ -139,13 +139,9 @@ regenerate_prompt_template = "Please regenerate the last step based on the instr
 # First count total lines in file
 total_lines = sum(1 for line in jsonlines.open(input_file))
 
-# Randomly choose line numbers (e.g. 50 samples)
-num_samples = 50 
-sampled_lines = sorted(random.sample(range(total_lines), num_samples))
-
-# Save sampled line numbers
-with open('sampled_lines.txt', 'w') as f:
-    f.write('\n'.join(map(str, sampled_lines)))
+# Read sampled line numbers from file
+with open('sampled_lines.txt', 'r') as f:
+    sampled_lines = [int(line.strip()) for line in f if line.strip()]
 
 # Read only the sampled lines
 with jsonlines.open(input_file) as reader:
