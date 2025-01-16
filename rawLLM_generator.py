@@ -28,16 +28,21 @@ stop_words = ["###", " ###", "#"]
 stop_words_ids = [tokenizer.encode(stop_word, add_special_tokens=False) for stop_word in stop_words]
 
 def generate(model, tokenizer, prompt):
-    inputs = tokenizer(prompt, return_tensors="pt").to(device)
+    # inputs = tokenizer(prompt, return_tensors="pt").to(device)
 
     outputs = model.generate(
-        inputs.input_ids,
+        # inputs.input_ids,
+        # attention_mask=inputs['attention_mask'],
+        # pad_token_id=tokenizer.eos_token_id,
+        prompt,
+        # top_k=32,
         temperature=0.7, ## 可以调整一下提升表现 
         # stopping_criteria=stopping_criteria,
         # repetition_penalty=1.1,
     )
-    generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
-    return generated_texts[0]
+    # generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
+    # return generated_texts[0]
+    return outputs
 
 def extract_boxed_content(text: str) -> str:
     """
