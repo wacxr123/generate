@@ -2,13 +2,11 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformers import StoppingCriteria, StoppingCriteriaList
 import torch
 from typing import Dict, Any, Optional, List
-from context_cite import ContextCiter
 import numpy as np
 import re
-import jsonlines
 from tqdm import tqdm
-from itertools import islice
-import random
+import jsonlines
+
 
 device = "cuda:3"
 max_new_tokens = 512
@@ -42,7 +40,7 @@ def generate(model, tokenizer, prompt):
         do_sample=True,
         top_k=32,
         temperature=0.7,
-        stopping_criteria=stopping_criteria,
+        # stopping_criteria=stopping_criteria,
         # repetition_penalty=1.1,
     )
     generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
