@@ -34,7 +34,7 @@ def generate(model, tokenizer, prompt):
         inputs.input_ids,
         attention_mask=inputs['attention_mask'],
         pad_token_id=tokenizer.eos_token_id,
-        max_new_tokens=8192,
+        max_new_tokens=2048,
         num_return_sequences=num_votes,
         do_sample=True,
         top_k=32,
