@@ -75,17 +75,10 @@ def extract_boxed_content(text: str) -> str:
         return result
     return ""
 
-generate_kwargs = {
-    "max_new_tokens": max_new_tokens,
-    "num_return_sequences": num_votes,
-    "do_sample": True,
-    "top_k": 32,
-    "temperature": 0.7,
-}
-
 prompt_template = (
     "You are a math problem solver. Please answer the question step by step. At the begin of each step please signify the step No. in the form 'Step No.:'. "
     r"Please write the final answer with \boxed{}\n"
+    r"Please write the final answer with \boxed{}\n!!!!"
 )
 
 # First count total lines in file
@@ -96,25 +89,30 @@ with open('sampled_lines.txt', 'r') as f:
     sampled_lines = [int(line.strip()) for line in f if line.strip()]
 
 output_file = "./rawLLM_sampling_cnt"+str(len(sampled_lines))+"_result.jsonl"
+print("the output_file is: "+output_file)
+
 # Read only the sampled lines
 with jsonlines.open(input_file) as reader:
-    i=0
     for line_num, item in tqdm(enumerate(reader)):
         if line_num not in sampled_lines:
             continue
+        # print("the line_num and item is :", line_num, item)
         Question = item["question"]
         prompt = prompt_template + "Question:{}\n".format(Question)
-
+        print("#####the final prompt is#####: "+prompt)
+        i=0
         while True: # loop until it has \boxed{} format answer output
                        
             # 获取生成的文本，去掉prompt部分
             text = generate(model, tokenizer, prompt)[len(prompt) :]
-   
+            print("#####the result text is#####: ",text)
+            
             if r"\boxed" not in text:
                 continue
             
-            if r"\boxed" in text or i == 5: # all steps in one should not be greater than 5
+            if r"\boxed" in text or i == 5: # all iter times should not be greater than 5
                 final_answer = extract_boxed_content(text)
+                print("#####the final_answer is#####: ",final_answer)
                 output_item = {"question": Question, "answer": final_answer}
                 # Use write mode ('w') for first item, append ('a') for others
                 mode = "w" if line_num == sampled_lines[0] else "a"
