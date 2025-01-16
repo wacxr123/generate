@@ -11,6 +11,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--device', type=int, default=3, help='GPU device number, defalut is 3')
+parser.add_argument('--part', type=int, choices=[0, 1, 2, 3], required=True, help='Part number (0-3) corresponding to data range')
 args = parser.parse_args()
 device = f'cuda:{args.device}'
 max_new_tokens = 1024
@@ -77,9 +78,6 @@ prompt_template = (
     "You are a math problem solver. Please answer the question step by step. At the begin of each step please signify the step No. in the form 'Step No.:'. "
     r"Please write the final answer with \boxed{}. Remember, write the final answer in the '\boxed{}' annotation!"
 )
-
-
-parser.add_argument('--part', type=int, choices=[0, 1, 2, 3], required=True, help='Part number (0-3) corresponding to data range')
 
 # Split 5000 into 4 parts
 part_size = 1250
