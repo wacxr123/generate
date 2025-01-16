@@ -76,21 +76,19 @@ prompt_template = (
     r"Please write the final answer with \boxed{}\n!!!!"
 )
 
-# First count total lines in file
-total_lines = sum(1 for line in jsonlines.open(input_file))
 
 # Read sampled line numbers from file
 with open('sampled_lines.txt', 'r') as f:
     sampled_lines = [int(line.strip()) for line in f if line.strip()]
-
 output_file = "./rawLLM_sampling_cnt"+str(len(sampled_lines))+"_result.jsonl"
 print("the output_file is: "+output_file)
 
 # Read only the sampled lines
-with jsonlines.open(input_file) as reader:
-    for line_num, item in tqdm(enumerate(reader)):
-        if line_num not in sampled_lines:
-            continue
+for line_num in tqdm(sampled_lines, desc="Processing sampled lines"):
+    with jsonlines.open(input_file) as reader:
+        for current_line_num, item in enumerate(reader):
+            if current_line_num == line_num:
+                break
         print("the line_num is :", line_num)
         Question = item["question"]
         prompt = prompt_template + "Question:{}\n".format(Question)
