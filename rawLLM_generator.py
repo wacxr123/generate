@@ -10,7 +10,6 @@ import jsonlines
 
 device = "cuda:3"
 max_new_tokens = 512
-verifier_max_new_tokens = 256
 model_path = "meta-llama/Llama-3.1-8B-Instruct"
 num_votes = 1
 input_file = "./math_testset_annotation.jsonl"
@@ -35,11 +34,11 @@ def generate(model, tokenizer, prompt):
         inputs.input_ids,
         attention_mask=inputs['attention_mask'],
         pad_token_id=tokenizer.eos_token_id,
-        max_new_tokens=256,
+        # max_new_tokens=256,
         num_return_sequences=num_votes,
         do_sample=True,
         top_k=32,
-        temperature=0.7,
+        temperature=0.7, ## 可以调整一下提升表现 
         # stopping_criteria=stopping_criteria,
         # repetition_penalty=1.1,
     )
