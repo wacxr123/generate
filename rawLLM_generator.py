@@ -9,7 +9,7 @@ import jsonlines
 
 
 device = "cuda:3"
-max_new_tokens = 512
+max_new_tokens = 1024
 model_path = "meta-llama/Llama-3.1-8B-Instruct"
 num_votes = 1
 input_file = "./math_testset_annotation.jsonl"
@@ -51,7 +51,6 @@ def extract_boxed_content(text: str) -> str:
         str: \boxed{}中的内容，如果没找到返回空字符串
     """
     # 添加调试打印
-    print("输入文本:", text)
     if r"\boxed" not in text:
         return ""
     # 找到\boxed{后的位置
@@ -115,4 +114,5 @@ with jsonlines.open(input_file) as reader:
                 with jsonlines.open(output_file, mode=mode) as writer:
                     writer.write(output_item)
                 break
+            print("No \boxed found, regenerating......\n")
             i+=1
