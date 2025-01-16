@@ -76,7 +76,7 @@ def extract_boxed_content(text: str) -> str:
 
 prompt_template = (
     "You are a math problem solver. Please answer the question step by step. At the begin of each step please signify the step No. in the form 'Step No.:'. "
-    r"Please write the final answer with \boxed{}. Remember, write the final answer in the '\boxed{}' annotation!"
+    r"Please write the final answer with \boxed{}. Remember, write the final answer in the '\boxed{}' annotation! \n"
 )
 
 # Split 5000 into 4 parts
