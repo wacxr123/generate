@@ -32,12 +32,6 @@ def generate(model, tokenizer, prompt):
 
     outputs = model.generate(
         inputs.input_ids,
-        attention_mask=inputs['attention_mask'],
-        pad_token_id=tokenizer.eos_token_id,
-        max_new_tokens=2048,
-        num_return_sequences=num_votes,
-        do_sample=True,
-        top_k=32,
         temperature=0.7, ## 可以调整一下提升表现 
         # stopping_criteria=stopping_criteria,
         # repetition_penalty=1.1,
@@ -95,7 +89,7 @@ with jsonlines.open(input_file) as reader:
     for line_num, item in tqdm(enumerate(reader)):
         if line_num not in sampled_lines:
             continue
-        # print("the line_num and item is :", line_num, item)
+        print("the line_num is :", line_num)
         Question = item["question"]
         prompt = prompt_template + "Question:{}\n".format(Question)
         print("#####the final prompt is#####: "+prompt)
