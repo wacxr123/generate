@@ -6,13 +6,16 @@ import numpy as np
 import re
 from tqdm import tqdm
 import jsonlines
+import argparse
 
 
-device = "cuda:3"
+parser = argparse.ArgumentParser()
+parser.add_argument('--device', type=int, default=3, help='GPU device number, defalut is 3')
+args = parser.parse_args()
+device = f'cuda:{args.device}'
 max_new_tokens = 1024
 model_path = "meta-llama/Llama-3.1-8B-Instruct"
 num_votes = 1
-input_file = "./math_testset_annotation.jsonl"
 
 tokenizer = AutoTokenizer.from_pretrained(model_path, padding=False)
 # tokenizer.padding_side = 'right'
@@ -20,7 +23,7 @@ tokenizer = AutoTokenizer.from_pretrained(model_path, padding=False)
 
 model = AutoModelForCausalLM.from_pretrained(
     model_path,
-    torch_dtype=torch.bfloat16,  # why half presision here
+    torch_dtype=torch.bfloat16,  # 以防oom
     ##low_cpu_mem_usage=True,
     # device_map="auto"
 ).to(device)
@@ -72,16 +75,29 @@ def extract_boxed_content(text: str) -> str:
 
 prompt_template = (
     "You are a math problem solver. Please answer the question step by step. At the begin of each step please signify the step No. in the form 'Step No.:'. "
-    r"Please write the final answer with \boxed{}\n"
-    r"Please write the final answer with \boxed{}\n!!!!"
+    r"Please write the final answer with \boxed{}. Remember, write the final answer in the '\boxed{}' annotation!"
 )
 
 
-# Read sampled line numbers from file
-with open('sampled_lines.txt', 'r') as f:
-    sampled_lines = [int(line.strip()) for line in f if line.strip()]
-output_file = "./rawLLM_sampling_cnt"+str(len(sampled_lines))+"_result.jsonl"
-print("the output_file is: "+output_file)
+parser.add_argument('--part', type=int, choices=[0, 1, 2, 3], required=True, help='Part number (0-3) corresponding to data range')
+
+# Split 5000 into 4 parts
+part_size = 1250
+ranges = [
+    (1, 1250),
+    (1251, 2500),
+    (2501, 3750),
+    (3751, 5000)
+]
+# Get the range based on part argument
+start, end = ranges[args.part]
+sampled_lines = range(start-1, end)  # -1 for 0-based indexing
+myrange = f"index[{start}-{end}]"
+output_file = "./rawLLM_" + myrange + "_result.jsonl"
+print("The output_file is: " + output_file)
+
+# Read only the sampled lines
+input_file = "./math_testset_annotation.jsonl"
 
 # Read only the sampled lines
 for line_num in tqdm(sampled_lines, desc="Processing sampled lines"):
