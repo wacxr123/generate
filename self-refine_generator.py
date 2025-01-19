@@ -229,6 +229,8 @@ sampled_lines = sorted(random.sample(range(total_lines), num_samples))
 with open('sampled_lines.txt', 'w') as f:
     f.write('\n'.join(map(str, sampled_lines)))
 
+# this a test code for only first line in input_file
+sampled_lines = 1
 # Read only the sampled lines
 with jsonlines.open(input_file) as reader:
     for line_num, item in tqdm(enumerate(reader)):
