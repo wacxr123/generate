@@ -10,7 +10,9 @@ from tqdm import tqdm
 from itertools import islice
 import random
 import argparse
+import warnings
 
+warnings.filterwarnings("ignore")
 device = "cuda:3"
 max_new_tokens = 512
 verifier_max_new_tokens = 256
@@ -230,7 +232,7 @@ with open('sampled_lines.txt', 'w') as f:
     f.write('\n'.join(map(str, sampled_lines)))
 
 # this a test code for only first line in input_file
-sampled_lines = 1
+sampled_lines = [1]
 # Read only the sampled lines
 with jsonlines.open(input_file) as reader:
     for line_num, item in tqdm(enumerate(reader)):
