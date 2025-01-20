@@ -36,8 +36,6 @@ def generate(model, tokenizer, prompt):
 
     outputs = model.generate(
         inputs.input_ids,
-        attention_mask=inputs['attention_mask'],
-        pad_token_id=tokenizer.eos_token_id,
         max_new_tokens=max_new_tokens,
         temperature=0.3, ## 可以调整一下提升表现 
         # stopping_criteria=stopping_criteria,
