@@ -39,7 +39,7 @@ def generate(model, tokenizer, prompt):
         attention_mask=inputs['attention_mask'],
         pad_token_id=tokenizer.eos_token_id,
         max_new_tokens=max_new_tokens,
-        temperature=0.7, ## 可以调整一下提升表现 
+        temperature=0.3, ## 可以调整一下提升表现 
         # stopping_criteria=stopping_criteria,
         repetition_penalty=1.1,
     )
@@ -96,6 +96,12 @@ print("The output_file is: " + output_file)
 
 # Read only the sampled lines
 input_file = "./math_testset_annotation.jsonl"
+
+# ==================== 500 sample START =========================
+
+input_file = "./math_500_sample.jsonl"
+
+# ==================== 500 sample END =========================
 
 # Read only the sampled lines
 for line_num in tqdm(sampled_lines, desc="Processing sampled lines"):
