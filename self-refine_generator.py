@@ -182,7 +182,7 @@ def verify(model, tokenizer, prompt) -> bool:
     if match:
         answer = match.group(1).strip().lower()
         # 返回True如果是yes，False如果是no
-        return not (answer == 'no'), reasons
+        return 'no' not in answer, reasons
     
     # 如果没有找到匹配（但有\boxed），返回True
     return True, reasons
