@@ -41,7 +41,11 @@ def generate(model, tokenizer, prompt):
         max_new_tokens=max_new_tokens,
         temperature=0.3, ## 可以调整一下提升表现 
         # stopping_criteria=stopping_criteria,
-        repetition_penalty=1.1,
+        do_sample=True,
+        top_k=50,
+        top_p=0.95,
+        repetition_penalty=1.2,
+        no_repeat_ngram_size=3
     )
     generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
     return generated_text
