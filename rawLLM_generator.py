@@ -8,28 +8,45 @@ from tqdm import tqdm
 import jsonlines
 import argparse
 
+# Default constants
+DEFAULT_MODEL_PATH = "meta-llama/Llama-3.1-8B-Instruct"
+DEFAULT_MAX_NEW_TOKENS = 1024
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--device', type=int, default=3, help='GPU device number, defalut is 3')
-parser.add_argument('--part', type=int, choices=[0, 1, 2, 3], required=True, help='Part number (0-3) corresponding to data range')
+parser.add_argument(
+    "--device", type=str, default="3", help='GPU device number (0,1,2,3) or "auto" for automatic device mapping'
+)
+parser.add_argument("--file", type=str, required=True, help="Input jsonl file path")
+parser.add_argument(
+    "--lineRange", type=int, nargs=2, required=True, help="Line range to process (e.g., --lineRange 1 500)"
+)
+parser.add_argument("--model_path", type=str, default=DEFAULT_MODEL_PATH, help="Path to the model to use")
+parser.add_argument(
+    "--max_new_tokens", type=int, default=DEFAULT_MAX_NEW_TOKENS, help="Maximum number of new tokens to generate"
+)
 args = parser.parse_args()
-device = f'cuda:{args.device}'
-max_new_tokens = 1024
-model_path = "meta-llama/Llama-3.1-8B-Instruct"
-num_votes = 1
+
+model_path = args.model_path
+max_new_tokens = args.max_new_tokens
+
+# Handle device setting
+if args.device.lower() == "auto":
+    device_map = "auto"
+    model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.bfloat16, device_map=device_map)
+else:
+    device = f"cuda:{args.device}"
+    model = AutoModelForCausalLM.from_pretrained(
+        model_path,
+        torch_dtype=torch.bfloat16,
+    ).to(device)
 
 tokenizer = AutoTokenizer.from_pretrained(model_path, padding=False)
 # tokenizer.padding_side = 'right'
 # tokenizer.pad_token = tokenizer.eos_token
 
-model = AutoModelForCausalLM.from_pretrained(
-    model_path,
-    torch_dtype=torch.bfloat16,  # 以防oom
-    ##low_cpu_mem_usage=True,
-    # device_map="auto"
-).to(device)
 stop_words = ["###", " ###", "#"]
 stop_words_ids = [tokenizer.encode(stop_word, add_special_tokens=False) for stop_word in stop_words]
+
 
 def generate(model, tokenizer, prompt):
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
@@ -37,16 +54,17 @@ def generate(model, tokenizer, prompt):
     outputs = model.generate(
         inputs.input_ids,
         max_new_tokens=max_new_tokens,
-        temperature=0.3, ## 可以调整一下提升表现 
+        temperature=0.3,  ## 可以调整一下提升表现
         # stopping_criteria=stopping_criteria,
         do_sample=True,
         top_k=50,
         top_p=0.95,
         repetition_penalty=1.2,
-        no_repeat_ngram_size=3
+        no_repeat_ngram_size=3,
     )
     generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
     return generated_text
+
 
 def extract_boxed_content(text: str) -> str:
     """
@@ -76,34 +94,21 @@ def extract_boxed_content(text: str) -> str:
         return result
     return ""
 
+
 prompt_template = (
     "You are a math problem solver. Please answer the question step by step. At the begin of each step please signify the step No. in the form 'Step No.:'. "
     r"Please write the final answer with \boxed{}. Remember, write the final answer in the '\boxed{}' annotation! \n"
 )
 
-# Split 5000 into 4 parts
-part_size = 1250
-ranges = [
-    (1, 1250),
-    (1251, 2500),
-    (2501, 3750),
-    (3751, 5000)
-]
-# Get the range based on part argument
-start, end = ranges[args.part]
-sampled_lines = range(start-1, end)  # -1 for 0-based indexing
+# Replace the ranges and part logic with lineRange
+start, end = args.lineRange
+sampled_lines = range(start - 1, end)  # -1 for 0-based indexing
 myrange = f"index[{start}-{end}]"
 output_file = "./rawLLM_" + myrange + "_result.jsonl"
 print("The output_file is: " + output_file)
 
-# Read only the sampled lines
-input_file = "./math_testset_annotation.jsonl"
-
-# ==================== 500 sample START =========================
-
-input_file = "./math_500_sample.jsonl"
-
-# ==================== 500 sample END =========================
+# Update input file to use args.file
+input_file = args.file
 
 # Read only the sampled lines
 for line_num in tqdm(sampled_lines, desc="Processing sampled lines"):
@@ -114,20 +119,20 @@ for line_num in tqdm(sampled_lines, desc="Processing sampled lines"):
         print("the line_num is :", line_num)
         Question = item["question"]
         prompt = prompt_template + "Question:{}\n".format(Question)
-        print("#####the final prompt is#####: "+prompt)
-        i=0
-        while True: # loop until it has \boxed{} format answer output
-                       
+        print("#####the final prompt is#####: " + prompt)
+        i = 0
+        while True:  # loop until it has \boxed{} format answer output
+
             # 获取生成的文本，去掉prompt部分
             text = generate(model, tokenizer, prompt)[len(prompt) :]
-            print("#####the result text is#####: ",text)
-            
+            print("#####the result text is#####: ", text)
+
             if r"\boxed" not in text:
                 continue
-            
-            if r"\boxed" in text or i == 5: # all iter times should not be greater than 5
+
+            if r"\boxed" in text or i == 5:  # all iter times should not be greater than 5
                 final_answer = extract_boxed_content(text)
-                print("#####the final_answer is#####: ",final_answer)
+                print("#####the final_answer is#####: ", final_answer)
                 output_item = {"question": Question, "answer": final_answer}
                 # Use write mode ('w') for first item, append ('a') for others
                 mode = "w" if line_num == sampled_lines[0] else "a"
@@ -135,4 +140,4 @@ for line_num in tqdm(sampled_lines, desc="Processing sampled lines"):
                     writer.write(output_item)
                 break
             print("No \boxed found, regenerating......\n")
-            i+=1
+            i += 1
