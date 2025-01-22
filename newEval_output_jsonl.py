@@ -6,11 +6,17 @@ from sympy.parsing.latex import parse_latex
 def parse_latex_e(latex_str):
     if not latex_str.strip():  # Handle empty or whitespace-only strings
         return None
-    try:
-        # Pre-process percentage notation
-        latex_str = latex_str.replace(r'\%', r'/100')
+    
+    # Preprocess common LaTeX issues:
+    latex_str = latex_str.replace(r'\%', r'/100')  # Handle percentage notation
+    latex_str = latex_str.replace(r'\infty', 'oo')  # Substitute infinity symbol with 'oo' for parsing
+    
+    # Ensure that parentheses are correctly handled (e.g., fixing any mismatched pairs):
+    latex_str = latex_str.replace(r'\left(', '(').replace(r'\right)', ')')
+    latex_str = latex_str.replace(r'\left[', '[').replace(r'\right]', ']')
 
-        expr = parse_latex(latex_str)
+    try:
+        expr = sp.sympify(latex_str)  # Use sympy to parse LaTeX
         return expr
     except Exception as e:
         print(f"Error parsing LaTeX: {e} for input: '{latex_str}'")
