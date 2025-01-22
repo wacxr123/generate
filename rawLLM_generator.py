@@ -1,4 +1,4 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from transformers import StoppingCriteria, StoppingCriteriaList
 import torch
 from typing import Dict, Any, Optional, List
@@ -30,40 +30,15 @@ model_path = args.model_path
 max_new_tokens = args.max_new_tokens
 
 # Handle device setting
-if args.device.lower() == "auto":
-    device_map = "auto"
-    model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.bfloat16, device_map=device_map)
-else:
-    device = f"cuda:{args.device}"
-    model = AutoModelForCausalLM.from_pretrained(
-        model_path,
-        torch_dtype=torch.bfloat16,
-    ).to(device)
+device = "auto" if args.device.lower() == "auto" else f"cuda:{args.device}"
 
-tokenizer = AutoTokenizer.from_pretrained(model_path, padding=False)
-# tokenizer.padding_side = 'right'
-# tokenizer.pad_token = tokenizer.eos_token
-
-stop_words = ["###", " ###", "#"]
-stop_words_ids = [tokenizer.encode(stop_word, add_special_tokens=False) for stop_word in stop_words]
-
-
-def generate(model, tokenizer, prompt):
-    inputs = tokenizer(prompt, return_tensors="pt").to(device)
-
-    outputs = model.generate(
-        inputs.input_ids,
-        max_new_tokens=max_new_tokens,
-        temperature=0.3,  ## 可以调整一下提升表现
-        # stopping_criteria=stopping_criteria,
-        do_sample=True,
-        top_k=50,
-        top_p=0.95,
-        repetition_penalty=1.2,
-        no_repeat_ngram_size=3,
-    )
-    generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    return generated_text
+# Create pipeline directly instead of loading model and tokenizer separately
+pipe = pipeline(
+    "text-generation",
+    model=model_path,
+    torch_dtype=torch.bfloat16,
+    device_map=device,
+)
 
 
 def extract_boxed_content(text: str) -> str:
@@ -123,10 +98,8 @@ for line_num in tqdm(sampled_lines, desc="Processing sampled lines"):
         print("#####the final prompt is#####: " + prompt)
         i = 0
         while True:  # loop until it has \boxed{} format answer output
-
-            # 获取生成的文本，去掉prompt部分
-            text = generate(model, tokenizer, prompt)[len(prompt) :]
-            print("#####the result text is#####: ", text)
+            text = pipe(prompt)
+            print("#####the pipeline result text is#####: ", text)
 
             if r"\boxed" not in text:
                 continue
