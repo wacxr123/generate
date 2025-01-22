@@ -10,11 +10,10 @@ import argparse
 
 # Default constants
 DEFAULT_MODEL_PATH = "meta-llama/Llama-3.1-8B-Instruct"
-DEFAULT_MAX_NEW_TOKENS = 1024
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--device", type=str, default="3", help='GPU device number (0,1,2,3) or "auto" for automatic device mapping'
+    "--device", type=str, default="auto", help='GPU device number (0,1,2,3) or "auto" for automatic device mapping'
 )
 parser.add_argument("--file", type=str, required=True, help="Input jsonl file path")
 parser.add_argument(
