@@ -99,7 +99,7 @@ def data_itr():
             print("#####the final prompt is#####: " + prompt)
             yield prompt
         
-for out in pipe(data_itr):
+for out in pipe(data_itr()):
     print(out[0]["generated_text"])
 # i = 0
 # while True:  # loop until it has \boxed{} format answer output
