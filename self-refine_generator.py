@@ -25,28 +25,8 @@ threshold = -1e7
 num_ablations = 1
 
 tokenizer = AutoTokenizer.from_pretrained(model_path, padding=False)
-# tokenizer.padding_side = 'right'
-# tokenizer.pad_token = tokenizer.eos_token
 
-model = AutoModelForCausalLM.from_pretrained(
-    model_path,
-    torch_dtype=torch.bfloat16,
-    ##low_cpu_mem_usage=True,
-    # device_map="auto"
-).to(device)
-
-
-# verifier_tokenizer = AutoTokenizer.from_pretrained(verifier_model_path, padding = False)
-# # tokenizer.padding_side = 'right'
-# # tokenizer.pad_token = tokenizer.eos_token
-
-# verifier_model = AutoModelForCausalLM.from_pretrained(verifier_model_path,
-#         torch_dtype=torch.bfloat16,
-#         ##low_cpu_mem_usage=True,
-#         #device_map="auto"
-#         ).to(verifier_device )
-# verifier_tokenizer = tokenizer
-# verifier_model = model
+model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.bfloat16).to(device)
 
 stop_words = ["###", " ###", "#", "#####", "### ", "##### ", " #####"]
 stop_words_ids = [tokenizer.encode(stop_word, add_special_tokens=False) for stop_word in stop_words]
@@ -73,21 +53,6 @@ class sub_ContextCiter(ContextCiter):
             num_ablations=num_ablations,
         )
 
-    # def _get_prompt_ids(
-    #     self,
-    #     mask = None,
-    #     return_prompt: bool = False,
-    # ):
-    #     context = self.partitioner.get_context(mask)
-    #     prompt = self.prompt_template.format(context=context, query=self.query)
-
-    #     chat_prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False)
-
-    #     if return_prompt:
-    #         return chat_prompt_ids, prompt
-    #     else:
-    #         return chat_prompt_ids
-
     def _get_prompt_ids(
         self,
         mask=None,
@@ -100,23 +65,19 @@ class sub_ContextCiter(ContextCiter):
         Step 1: The powers of $i$ follow a cyclical pattern: $i^1 = i$, $i^2 = -1$, $i^3 = -i$, $i^4 = 1$, and then the cycle repeats. 
         We can use this pattern to simplify each term in the expression. 
         """
-        few_shot_answer1 = r"Step 2: For $i^5$, we can rewrite it as $i^4 \cdot i$, which simplifies to $1 \cdot i = i$. For $i^{-25}$, we can rewrite it as $\frac{1}{i^{25}}$. Since $i^{25}$ is equivalent to $(i^4)^6 \cdot i$, and $i^4 = 1$, we have $i^{25} = 1^6 \cdot i = i$."
         few_shot_context2 = r"""Question: What power of 4 is equal to 8? \
         Step 1: Express 8 as a power of 2: $8 = 2^3$
         Step 2:Express 4 as a power of 2: $4 = 2^2$
         Step 3:Equate the exponents: $2x = 3$ $x=\frac{3}{2}$"""
         few_shot_answer2 = r"""Final answer can be derived from previous steps, which is \boxed{\frac{3}{2}}
         """
-        prompt1 = self.prompt_template.format(context=few_shot_context1, query=self.query)
         prompt2 = self.prompt_template.format(context=few_shot_context2, query=self.query)
         messages = [
             {"role": "assistant", "content": system},
             {"role": "user", "content": prompt2},
             {"role": "assistant", "content": few_shot_answer2},
         ]
-        # messages.extend([{"role": "user", "content": prompt2}, {"role": "assistant", "content": few_shot_answer2}])
         messages.append({"role": "user", "content": final_prompt})
-        # print(messages)
         chat_prompt = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         chat_prompt_ids = self.tokenizer.encode(chat_prompt, add_special_tokens=False)
 
@@ -147,20 +108,6 @@ class sub_refine_ContextCiter(ContextCiter):
             num_ablations=num_ablations,
         )
 
-    # def _get_prompt_ids(
-    #     self,
-    #     mask = None,
-    #     return_prompt: bool = False,
-    # ):
-    #     context = self.partitioner.get_context(mask)
-    #     prompt = self.prompt_template.format(context=context, query=self.query)
-
-    #     chat_prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False)
-
-    #     if return_prompt:
-    #         return chat_prompt_ids, prompt
-    #     else:
-    #         return chat_prompt_ids
 
     def _get_prompt_ids(
         self,
@@ -174,8 +121,6 @@ class sub_refine_ContextCiter(ContextCiter):
         Step 1: The powers of $i$ follow a cyclical pattern: $i^1 = i$, $i^2 = -1$, $i^3 = -i$, $i^4 = 1$, and then the cycle repeats. 
         We can use this pattern to simplify each term in the expression. 
         """
-
-        few_shot_answer1 = r"Step 2: For $i^5$, we can rewrite it as $i^4 \cdot i$, which simplifies to $1 \cdot i = i$. For $i^{-25}$, we can rewrite it as $\frac{1}{i^{25}}$. Since $i^{25}$ is equivalent to $(i^4)^6 \cdot i$, and $i^4 = 1$, we have $i^{25} = 1^6 \cdot i = i$."
         few_shot_context2 = r"""Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?
         Step 1: to determine the asymptotes, we should find the zero point of $y=\\frac{2}{x^2+x-6}$.
         Step 2: to find the zero point, we have to factor the $x^2+x-6$.
@@ -183,16 +128,13 @@ class sub_refine_ContextCiter(ContextCiter):
         Instruction: $x^2+x-6$ doesn't equal to $(x-3)(x+2)$ but $(x-2)(x+3)$"""
         few_shot_answer2 = r"""steps 3:factor $x^2+x-6$, which is $(x+3)(x-2)$
         """
-        prompt1 = self.prompt_template.format(context=few_shot_context1, query=self.query)
         prompt2 = self.prompt_template.format(context=few_shot_context2, query=self.query)
         messages = [
             {"role": "assistant", "content": system},
             {"role": "user", "content": prompt2},
             {"role": "assistant", "content": few_shot_answer2},
         ]
-        # messages.extend([{"role": "user", "content": prompt2}, {"role": "assistant", "content": few_shot_answer2}])
         messages.append({"role": "user", "content": final_prompt})
-        # print(messages)
         chat_prompt = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         chat_prompt_ids = self.tokenizer.encode(chat_prompt, add_special_tokens=False)
 
@@ -225,18 +167,9 @@ def generate(model, tokenizer, prompt):
     outputs = model.generate(
         **inputs,
         max_new_tokens=256,
-        # num_return_sequences=num_votes,
-        # do_sample=True,
-        # top_k=50,
-        # top_p=0.95,
-        # temperature=0.3,
-        # num_beams=2,
-        # repetition_penalty=1.2,
-        # no_repeat_ngram_size=3
         stopping_criteria=stopping_criteria,
     )
     generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
-    # print(generated_texts[0])
     return generated_texts[0]
 
 
@@ -298,29 +231,22 @@ def verify(verifier_pipe, prompt) -> bool:
     """
     # 获取生成的文本，去掉prompt部分
     for i in range(3):
-        # verifier_cc = sub_ContextCiter(model, tokenizer, prompt, '', generate_kwargs=verifier_generate_kwargs, prompt_template='{context}', num_ablations=1)
-        # text = generate(model, tokenizer, prompt)[len(prompt):]
-        # text = verifier_cc.response
         text = verifier_generate_text(verifier_pipe, prompt, max_new_tokens)
         print("*" * 80)
         print("\n verification results:\n", text)
         print("*" * 80)
-
         reasons = extract_reasons(text)
         # 如果文本不含\boxed，返回True
         if r"\boxed" not in text:
             continue
-
         # 查找第一个\boxed{}中的内容
         pattern = r"\\boxed{([^}]*)}"
         match = re.search(pattern, text)
-
         if match:
             answer = match.group(1).strip().lower()
             # 返回True如果是yes，False如果是no
             if ("no" not in answer) and ("yes" not in answer):
                 continue
-
             # 如果没有找到匹配（但有\boxed），返回True
             return "no" not in answer, reasons
     return True, reasons
@@ -393,21 +319,10 @@ stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(stops=stop_words_i
 
 generate_kwargs = {
     "max_new_tokens": max_new_tokens,
-    #'num_return_sequences': num_votes,
-    #'do_sample': True,
-    #'top_k': 32,
-    # 'temperature': 0.3,
-    #'repetition_penalty':1.2,
-    #'stopping_criteria': stopping_criteria,
 }
 
 verifier_generate_kwargs = {
     "max_new_tokens": max_new_tokens,
-    #'num_return_sequences': num_votes,
-    #'do_sample': True,
-    #'top_k': 32,
-    "temperature": 0.3,
-    #'repetition_penalty':1.2,
     "stopping_criteria": stopping_criteria,
 }
 
@@ -490,22 +405,9 @@ def verifier_generate_text(verifier_pipe, prompt, max_new_tokens):
     assistant_response = outputs[0]["generated_text"][-1]["content"].strip()
     return assistant_response
 
-
-# prompt_template = (
-#     "You are a math problem solver. Please answer the question step by step. At the begin of each step please signify the step No. in the form 'Step No.:'. "
-#     "At the end of each step please output '###' to signify the end of the step.For example, in the first step, you should write in the form 'Step 1: ...\n ###'for the first step\n\n"
-#     r"Please write the final answer with \boxed{} ###\n"
-# )
-# query = 'You are a math problem solver. You are suppose to output the next potential step. Do not output more than 1 steps. You have to output step No.before the step. If the answer can be derived from previous steps? if yes, output \\boxed{final answer}. If not, What is the potential next step based on the previous steps and question?'
-
-
 query = r"What is the potential next step or answer?"
 query_refine = r"What is the regenerated step?(output directly)"
-# verifier_prompt_template = (
-#     "You are a math question verifier."
-#     "Question:{Question}\n Context:{Context} \n to be verified step:{verified_step}\n"
-#     "The to be verified step is only one step for the solution process, so you don't need to consider whether the step solves the question or not.\n"
-# )
+
 verifier_prompt_template = """
     You are a math question verifier.
     Please answer '\\boxed{yes}' or '\\boxed{no}' and the reasons to verify whether the to be verified step can be derived from the Context without hallucination or error.\n
