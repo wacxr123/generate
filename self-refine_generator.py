@@ -9,12 +9,12 @@ import jsonlines
 from tqdm import tqdm
 from itertools import islice
 
-device='cuda:0'
-verifier_device = 'cuda:1'
+device = "cuda:0"
+verifier_device = "cuda:1"
 max_new_tokens = 512
 verifier_max_new_tokens = 256
 model_path = "meta-llama/Llama-3.1-8B-Instruct"
-verifier_model_path = "meta-llama/Llama-3.1-8B-Instruct" #gemma(verifier模型)
+verifier_model_path = "google/gemma-2-9b-it"  # gemma(verifier模型)
 num_votes = 1
 # input_file = "./MATH_500.jsonl"
 input_file = "./math_testset_annotation.jsonl"
@@ -24,32 +24,34 @@ end_line = 250
 threshold = -1e7
 num_ablations = 1
 
-tokenizer = AutoTokenizer.from_pretrained(model_path, padding = False)
+tokenizer = AutoTokenizer.from_pretrained(model_path, padding=False)
 # tokenizer.padding_side = 'right'
 # tokenizer.pad_token = tokenizer.eos_token
 
-model = AutoModelForCausalLM.from_pretrained(model_path, 
-        torch_dtype=torch.bfloat16, 
-        ##low_cpu_mem_usage=True,
-        #device_map="auto"
-        ).to(device)
+model = AutoModelForCausalLM.from_pretrained(
+    model_path,
+    torch_dtype=torch.bfloat16,
+    ##low_cpu_mem_usage=True,
+    # device_map="auto"
+).to(device)
 
 
 # verifier_tokenizer = AutoTokenizer.from_pretrained(verifier_model_path, padding = False)
 # # tokenizer.padding_side = 'right'
 # # tokenizer.pad_token = tokenizer.eos_token
 
-# verifier_model = AutoModelForCausalLM.from_pretrained(verifier_model_path, 
-#         torch_dtype=torch.bfloat16, 
+# verifier_model = AutoModelForCausalLM.from_pretrained(verifier_model_path,
+#         torch_dtype=torch.bfloat16,
 #         ##low_cpu_mem_usage=True,
 #         #device_map="auto"
 #         ).to(verifier_device )
 # verifier_tokenizer = tokenizer
 # verifier_model = model
 
-stop_words = ["###"," ###", "#", "#####", "### ", "##### ", " #####"]
+stop_words = ["###", " ###", "#", "#####", "### ", "##### ", " #####"]
 stop_words_ids = [tokenizer.encode(stop_word, add_special_tokens=False) for stop_word in stop_words]
-    
+
+
 class sub_ContextCiter(ContextCiter):
     def __init__(
         self,
@@ -58,11 +60,19 @@ class sub_ContextCiter(ContextCiter):
         context: str,
         query: str,
         generate_kwargs: Optional[Dict[str, Any]] = None,
-        prompt_template = "Context: {context}\n\nInstruction: {query}",
-        num_ablations = 64,
+        prompt_template="Context: {context}\n\nInstruction: {query}",
+        num_ablations=64,
     ) -> None:
-        super().__init__(model, tokenizer, context, query, generate_kwargs = generate_kwargs, prompt_template = prompt_template, num_ablations=num_ablations)
-    
+        super().__init__(
+            model,
+            tokenizer,
+            context,
+            query,
+            generate_kwargs=generate_kwargs,
+            prompt_template=prompt_template,
+            num_ablations=num_ablations,
+        )
+
     # def _get_prompt_ids(
     #     self,
     #     mask = None,
@@ -70,48 +80,51 @@ class sub_ContextCiter(ContextCiter):
     # ):
     #     context = self.partitioner.get_context(mask)
     #     prompt = self.prompt_template.format(context=context, query=self.query)
-    
+
     #     chat_prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False)
 
     #     if return_prompt:
     #         return chat_prompt_ids, prompt
     #     else:
     #         return chat_prompt_ids
-    
+
     def _get_prompt_ids(
         self,
-        mask = None,
+        mask=None,
         return_prompt: bool = False,
     ):
         context = self.partitioner.get_context(mask)
         final_prompt = self.prompt_template.format(context=context, query=self.query)
-        system = r'You are a math problem solver trying to solve the Question demonstrated in the context step by step. If the answer can be derived from previous step, please output the final answer with \boxed{} directly!If not, please output the next potential step based on the previous steps and question with Step No.in the front. . Please only output 1 step everytime.'
-        few_shot_context1 = r'''Question: Evaluate $i^5+i^{-25}+i^{45}$.
+        system = r"You are a math problem solver trying to solve the Question demonstrated in the context step by step. If the answer can be derived from previous step, please output the final answer with \boxed{} directly!If not, please output the next potential step based on the previous steps and question with Step No.in the front. . Please only output 1 step everytime."
+        few_shot_context1 = r"""Question: Evaluate $i^5+i^{-25}+i^{45}$.
         Step 1: The powers of $i$ follow a cyclical pattern: $i^1 = i$, $i^2 = -1$, $i^3 = -i$, $i^4 = 1$, and then the cycle repeats. 
         We can use this pattern to simplify each term in the expression. 
-        '''
-        few_shot_answer1 = r'Step 2: For $i^5$, we can rewrite it as $i^4 \cdot i$, which simplifies to $1 \cdot i = i$. For $i^{-25}$, we can rewrite it as $\frac{1}{i^{25}}$. Since $i^{25}$ is equivalent to $(i^4)^6 \cdot i$, and $i^4 = 1$, we have $i^{25} = 1^6 \cdot i = i$.'
-        few_shot_context2 = r'''Question: What power of 4 is equal to 8? \
+        """
+        few_shot_answer1 = r"Step 2: For $i^5$, we can rewrite it as $i^4 \cdot i$, which simplifies to $1 \cdot i = i$. For $i^{-25}$, we can rewrite it as $\frac{1}{i^{25}}$. Since $i^{25}$ is equivalent to $(i^4)^6 \cdot i$, and $i^4 = 1$, we have $i^{25} = 1^6 \cdot i = i$."
+        few_shot_context2 = r"""Question: What power of 4 is equal to 8? \
         Step 1: Express 8 as a power of 2: $8 = 2^3$
         Step 2:Express 4 as a power of 2: $4 = 2^2$
-        Step 3:Equate the exponents: $2x = 3$ $x=\frac{3}{2}$'''
-        few_shot_answer2 = r'''Final answer can be derived from previous steps, which is \boxed{\frac{3}{2}}
-        '''
-        prompt1 =  self.prompt_template.format(context=few_shot_context1, query=self.query) 
-        prompt2 =  self.prompt_template.format(context=few_shot_context2, query=self.query)  
-        messages = [{"role": "system", "content": system}, {"role": "user", "content": prompt2}, {"role": "model", "content": few_shot_answer2}]
+        Step 3:Equate the exponents: $2x = 3$ $x=\frac{3}{2}$"""
+        few_shot_answer2 = r"""Final answer can be derived from previous steps, which is \boxed{\frac{3}{2}}
+        """
+        prompt1 = self.prompt_template.format(context=few_shot_context1, query=self.query)
+        prompt2 = self.prompt_template.format(context=few_shot_context2, query=self.query)
+        messages = [
+            {"role": "assistant", "content": system},
+            {"role": "user", "content": prompt2},
+            {"role": "model", "content": few_shot_answer2},
+        ]
         # messages.extend([{"role": "user", "content": prompt2}, {"role": "assistant", "content": few_shot_answer2}])
         messages.append({"role": "user", "content": final_prompt})
         # print(messages)
-        chat_prompt = self.tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
+        chat_prompt = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         chat_prompt_ids = self.tokenizer.encode(chat_prompt, add_special_tokens=False)
 
         if return_prompt:
             return chat_prompt_ids, chat_prompt
         else:
             return chat_prompt_ids
+
 
 class sub_refine_ContextCiter(ContextCiter):
     def __init__(
@@ -121,11 +134,19 @@ class sub_refine_ContextCiter(ContextCiter):
         context: str,
         query: str,
         generate_kwargs: Optional[Dict[str, Any]] = None,
-        prompt_template = "Context: {context}\n\nInstruction: {query}",
-        num_ablations = 64,
+        prompt_template="Context: {context}\n\nInstruction: {query}",
+        num_ablations=64,
     ) -> None:
-        super().__init__(model, tokenizer, context, query, generate_kwargs = generate_kwargs, prompt_template = prompt_template, num_ablations=num_ablations)
-    
+        super().__init__(
+            model,
+            tokenizer,
+            context,
+            query,
+            generate_kwargs=generate_kwargs,
+            prompt_template=prompt_template,
+            num_ablations=num_ablations,
+        )
+
     # def _get_prompt_ids(
     #     self,
     #     mask = None,
@@ -133,52 +154,53 @@ class sub_refine_ContextCiter(ContextCiter):
     # ):
     #     context = self.partitioner.get_context(mask)
     #     prompt = self.prompt_template.format(context=context, query=self.query)
-    
+
     #     chat_prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False)
 
     #     if return_prompt:
     #         return chat_prompt_ids, prompt
     #     else:
     #         return chat_prompt_ids
-    
+
     def _get_prompt_ids(
         self,
-        mask = None,
+        mask=None,
         return_prompt: bool = False,
     ):
         context = self.partitioner.get_context(mask)
         final_prompt = self.prompt_template.format(context=context, query=self.query)
-        system = r'You are a math problem solver. Since the last step is incorrect, now you have to regenerate the last step, which is the to be regenerated step below, based on the previous step, question and instruction. The instruction explains why the last step is incorrect. '
-        few_shot_context1 = r'''Question: Evaluate $i^5+i^{-25}+i^{45}$.
+        system = r"You are a math problem solver. Since the last step is incorrect, now you have to regenerate the last step, which is the to be regenerated step below, based on the previous step, question and instruction. The instruction explains why the last step is incorrect. "
+        few_shot_context1 = r"""Question: Evaluate $i^5+i^{-25}+i^{45}$.
         Step 1: The powers of $i$ follow a cyclical pattern: $i^1 = i$, $i^2 = -1$, $i^3 = -i$, $i^4 = 1$, and then the cycle repeats. 
         We can use this pattern to simplify each term in the expression. 
-        '''
-       
+        """
 
-
-        few_shot_answer1 = r'Step 2: For $i^5$, we can rewrite it as $i^4 \cdot i$, which simplifies to $1 \cdot i = i$. For $i^{-25}$, we can rewrite it as $\frac{1}{i^{25}}$. Since $i^{25}$ is equivalent to $(i^4)^6 \cdot i$, and $i^4 = 1$, we have $i^{25} = 1^6 \cdot i = i$.'
-        few_shot_context2 = r'''Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?
+        few_shot_answer1 = r"Step 2: For $i^5$, we can rewrite it as $i^4 \cdot i$, which simplifies to $1 \cdot i = i$. For $i^{-25}$, we can rewrite it as $\frac{1}{i^{25}}$. Since $i^{25}$ is equivalent to $(i^4)^6 \cdot i$, and $i^4 = 1$, we have $i^{25} = 1^6 \cdot i = i$."
+        few_shot_context2 = r"""Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?
         Step 1: to determine the asymptotes, we should find the zero point of $y=\\frac{2}{x^2+x-6}$.
         Step 2: to find the zero point, we have to factor the $x^2+x-6$.
         To be regenerated step: Step 3:factor $x^2+x-6$, which is $(x-3)(x+2)$
-        Instruction: $x^2+x-6$ doesn't equal to $(x-3)(x+2)$ but $(x-2)(x+3)$'''
-        few_shot_answer2 = r'''steps 3:factor $x^2+x-6$, which is $(x+3)(x-2)$
-        '''
-        prompt1 =  self.prompt_template.format(context=few_shot_context1, query=self.query) 
-        prompt2 =  self.prompt_template.format(context=few_shot_context2, query=self.query)  
-        messages = [{"role": "system", "content": system}, {"role": "user", "content": prompt2}, {"role": "model", "content": few_shot_answer2}]
+        Instruction: $x^2+x-6$ doesn't equal to $(x-3)(x+2)$ but $(x-2)(x+3)$"""
+        few_shot_answer2 = r"""steps 3:factor $x^2+x-6$, which is $(x+3)(x-2)$
+        """
+        prompt1 = self.prompt_template.format(context=few_shot_context1, query=self.query)
+        prompt2 = self.prompt_template.format(context=few_shot_context2, query=self.query)
+        messages = [
+            {"role": "assistant", "content": system},
+            {"role": "user", "content": prompt2},
+            {"role": "model", "content": few_shot_answer2},
+        ]
         # messages.extend([{"role": "user", "content": prompt2}, {"role": "assistant", "content": few_shot_answer2}])
         messages.append({"role": "user", "content": final_prompt})
         # print(messages)
-        chat_prompt = self.tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
+        chat_prompt = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         chat_prompt_ids = self.tokenizer.encode(chat_prompt, add_special_tokens=False)
 
         if return_prompt:
             return chat_prompt_ids, chat_prompt
         else:
             return chat_prompt_ids
+
 
 class StoppingCriteriaSub(StoppingCriteria):
     def __init__(self, stops=None):
@@ -190,31 +212,33 @@ class StoppingCriteriaSub(StoppingCriteria):
             stop_ids_tensor = torch.tensor(stop_ids).to(input_ids.device)
             for seq_idx in range(input_ids.shape[0]):
                 if input_ids[seq_idx].size(0) >= len(stop_ids):
-                    if torch.all(input_ids[seq_idx][-len(stop_ids):] == stop_ids_tensor):
+                    if torch.all(input_ids[seq_idx][-len(stop_ids) :] == stop_ids_tensor):
                         return True
         return False
- 
+
+
 def generate(model, tokenizer, prompt):
     inputs = tokenizer(prompt, return_tensors="pt").to(verifier_device)
-    print('*'*80)
-    print('verification prompt:\n',prompt)
-    print('*'*80)
+    print("*" * 80)
+    print("verification prompt:\n", prompt)
+    print("*" * 80)
     outputs = model.generate(
         **inputs,
         max_new_tokens=256,
-        #num_return_sequences=num_votes,
-        #do_sample=True,
-        #top_k=50,
-        #top_p=0.95,
-        #temperature=0.3,
-        #num_beams=2,
+        # num_return_sequences=num_votes,
+        # do_sample=True,
+        # top_k=50,
+        # top_p=0.95,
+        # temperature=0.3,
+        # num_beams=2,
         # repetition_penalty=1.2,
-        #no_repeat_ngram_size=3
+        # no_repeat_ngram_size=3
         stopping_criteria=stopping_criteria,
     )
     generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
     # print(generated_texts[0])
-    return generated_texts[0] 
+    return generated_texts[0]
+
 
 def extract_reasons(text: str) -> str:
     """
@@ -225,19 +249,19 @@ def extract_reasons(text: str) -> str:
         str: reasons后面到第一个#之前的内容，去除重复后的结果，如果没找到返回空字符串
     """
     # 使用正则表达式查找reasons:后到第一个#之前的所有内容
-    pattern = r'reasons:(.*?)(?=#|$)'  # 匹配到第一个#或文本结束
+    pattern = r"reasons:(.*?)(?=#|$)"  # 匹配到第一个#或文本结束
     match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)  # DOTALL让.也能匹配换行符
-    
+
     if match:
         # 提取并清理文本
         reasons = match.group(1).strip()
-        
+
         # 按句子分割文本
-        sentences = re.split(r'[.!?]+\s*', reasons)
-        
+        sentences = re.split(r"[.!?]+\s*", reasons)
+
         # 去除空字符串
         sentences = [s.strip() for s in sentences if s.strip()]
-        
+
         # 去除连续重复3次以上的句子
         result = []
         i = 0
@@ -248,18 +272,20 @@ def extract_reasons(text: str) -> str:
             while j < len(sentences) and sentences[j] == sentences[i]:
                 count += 1
                 j += 1
-            
+
             # 根据重复次数添加句子
             if count < 3:
                 result.extend([sentences[i]] * count)
             else:
                 result.append(sentences[i])
-            
+
             i = j
-            
-        return '. '.join(result)
-    
+
+        return ". ".join(result)
+
     return ""
+
+
 def verify(verifier_pipe, prompt) -> bool:
     """
     生成文本并检查第一个\boxed{}中的答案
@@ -276,35 +302,37 @@ def verify(verifier_pipe, prompt) -> bool:
         # text = generate(model, tokenizer, prompt)[len(prompt):]
         # text = verifier_cc.response
         text = verifier_generate_text(verifier_pipe, prompt, max_new_tokens)
-        print('*'*80)
-        print('\n verification results:\n', text)
-        print('*'*80)
-        
+        print("*" * 80)
+        print("\n verification results:\n", text)
+        print("*" * 80)
+
         reasons = extract_reasons(text)
         # 如果文本不含\boxed，返回True
-        if r'\boxed' not in text:
+        if r"\boxed" not in text:
             continue
-        
+
         # 查找第一个\boxed{}中的内容
-        pattern = r'\\boxed{([^}]*)}'
+        pattern = r"\\boxed{([^}]*)}"
         match = re.search(pattern, text)
-        
+
         if match:
             answer = match.group(1).strip().lower()
             # 返回True如果是yes，False如果是no
-            if ('no' not in answer) and ('yes' not in answer):
+            if ("no" not in answer) and ("yes" not in answer):
                 continue
-        
-        # 如果没有找到匹配（但有\boxed），返回True
-            return 'no' not in answer, reasons
+
+            # 如果没有找到匹配（但有\boxed），返回True
+            return "no" not in answer, reasons
     return True, reasons
+
 
 def count_steps(text: str) -> int:
     # 使用正则表达式查找所有包含"Step"的实例
-    pattern = r'Step \d+'
+    pattern = r"Step \d+"
     matches = re.findall(pattern, text)
-    print('Step Count:', len(matches))
+    print("Step Count:", len(matches))
     return len(matches)
+
 
 def extract_boxed_content(text: str) -> str:
     """
@@ -316,34 +344,36 @@ def extract_boxed_content(text: str) -> str:
     """
     # 添加调试打印
     # print("输入文本:", text)
-    if r'\boxed' not in text:
+    if r"\boxed" not in text:
         return ""
     # 找到\boxed{后的位置
-    start_pos = text.find(r'\boxed{')
-    start_idx = start_pos + len(r'\boxed{')  # 使用len()更清晰
+    start_pos = text.find(r"\boxed{")
+    start_idx = start_pos + len(r"\boxed{")  # 使用len()更清晰
     # 计数左右大括号来处理嵌套情况
     count = 1
     current_idx = start_idx
     while count > 0 and current_idx < len(text):
-        if text[current_idx] == '{':
+        if text[current_idx] == "{":
             count += 1
-        elif text[current_idx] == '}':
+        elif text[current_idx] == "}":
             count -= 1
         current_idx += 1
     if count == 0:
-        result = text[start_idx:current_idx - 1].strip()
+        result = text[start_idx : current_idx - 1].strip()
         return result
     return ""
+
 
 def generate_verification_prompt(question, current_step, context):
     prompt = f"Question:\n{question}\n"
     prompt += f"Context:\n{context}\n"
-    prompt += f'''Verify Step: {current_step}\n
+    prompt += f"""Verify Step: {current_step}\n
     Is this step correct?(Yes/No).
     If the step is incorrect (No), please provide the following: **Explanation:** Explain why the original step is incorrect. And respond \\boxed{{No}} on a new line.
     If the step is correct (Yes), please respond \\boxed{{Yes}}
-    '''
+    """
     return prompt
+
 
 def remove_prefix(string_a: str, string_b: str) -> str:
     """
@@ -355,14 +385,14 @@ def remove_prefix(string_a: str, string_b: str) -> str:
         str: 移除前缀后的字符串
     """
     if string_a.startswith(string_b):
-        return string_a[len(string_b):]
+        return string_a[len(string_b) :]
     return string_a
 
 
-stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(stops = stop_words_ids)])
+stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(stops=stop_words_ids)])
 
 generate_kwargs = {
-    'max_new_tokens': max_new_tokens,
+    "max_new_tokens": max_new_tokens,
     #'num_return_sequences': num_votes,
     #'do_sample': True,
     #'top_k': 32,
@@ -372,73 +402,94 @@ generate_kwargs = {
 }
 
 verifier_generate_kwargs = {
-    'max_new_tokens': max_new_tokens,
+    "max_new_tokens": max_new_tokens,
     #'num_return_sequences': num_votes,
     #'do_sample': True,
     #'top_k': 32,
-    'temperature': 0.3,
+    "temperature": 0.3,
     #'repetition_penalty':1.2,
-    'stopping_criteria': stopping_criteria,
+    "stopping_criteria": stopping_criteria,
 }
 
 verifier_pipe = pipeline(
     "text-generation",
     model=verifier_model_path,
     model_kwargs={"torch_dtype": torch.bfloat16},
-    device=verifier_device,  
+    device=verifier_device,
 )
+
 
 def verifier_generate_text(verifier_pipe, prompt, max_new_tokens):
     messages = [
-        {"role": "system", "content": '''
+        {
+            "role": "assistant",
+            "content": """
         You are a math question verifier.
         Please answer '\\boxed{yes}' or '\\boxed{no}' and the reasons to verify whether the to be verified step has calculation error or logical inconsistency based on the context.
         If one step is previous mentioned, it's a minor mistake, so just output \\boxed{yes}.
         Output \\boxed{yes} as much as possible, since we could accept minor mistake.If it's not a fatal error, please answer \\boxed{yes}.
         If the 'to be verified step' contains repetitive content, Please answer \\boxed{no}
-        Your response should be in the form of: results:\\boxed{no/yes} \n reasons:'''},
-        {"role": "user", "content": '''
+        Your response should be in the form of: results:\\boxed{no/yes} \n reasons:""",
+        },
+        {
+            "role": "user",
+            "content": """
         Context: Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?
         Step 1: to determine the asymptotes, we should find the zero point of $y=\\frac{2}{x^2+x-6}$.
         Step 4: the asymptotes for $x^2+x-6$ should be x=2 and x = -3.
         To be verified step: 
         So the number of asymptotes should be 2.
-        '''},
-        {"role": "model", "content":'''
+        """,
+        },
+        {
+            "role": "model",
+            "content": """
          results:\\boxed{yes}
         \\reasons: since the asymptotes for $x^2+x-6$ is x=2 and x=-3, the number of asymptotes should be 2.
-         '''
+         """,
         },
-        {"role": "user", "content": '''
+        {
+            "role": "user",
+            "content": """
          Context: Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?
         Step 1: to determine the asymptotes, we should find the zero point of $y=\\frac{2}{x^2+x-6}$.
         To be verified step: 
         factor $x^2+x-6$, which is $(x-3)(x+2)$
-        '''},
-        {"role": "model", "content":'''
+        """,
+        },
+        {
+            "role": "model",
+            "content": """
          results:\\boxed{no}
         \\reasons: $x^2+x-6$ doesn't equal to $(x-3)(x+2)$ but $(x-2)(x+3)$.
-        '''
-        # \\reasons: $x^2+x-6$ doesn't equal to $(x-3)(x+2)$ but $(x-2)(x+3)$.
-         
+        """,
+            # \\reasons: $x^2+x-6$ doesn't equal to $(x-3)(x+2)$ but $(x-2)(x+3)$.
         },
-        {"role": "user", "content": '''
+        {
+            "role": "user",
+            "content": """
         Context: Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?
         Step 1: to determine the asymptotes, we should find the zero point of $y=\\frac{2}{x^2+x-6}$.
         Step 4: the asymptotes for $x^2+x-6$ should be x=2 and x = -3.
         To be verified step: 
         So the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.
-        '''},
-        {"role": "model", "content":'''
+        """,
+        },
+        {
+            "role": "model",
+            "content": """
          results:\\boxed{No}
         \\reasons: The to be verifier step contains repetitive content. Please remove duplicate content.
-         '''
+         """,
         },
         {"role": "user", "content": prompt},
     ]
-    outputs = verifier_pipe(messages, do_sample=True, top_p=0.95, temperature=0.7, max_new_tokens=verifier_max_new_tokens)
+    outputs = verifier_pipe(
+        messages, do_sample=True, top_p=0.95, temperature=0.7, max_new_tokens=verifier_max_new_tokens
+    )
     assistant_response = outputs[0]["generated_text"][-1]["content"].strip()
     return assistant_response
+
 
 # prompt_template = (
 #     "You are a math problem solver. Please answer the question step by step. At the begin of each step please signify the step No. in the form 'Step No.:'. "
@@ -448,14 +499,14 @@ def verifier_generate_text(verifier_pipe, prompt, max_new_tokens):
 # query = 'You are a math problem solver. You are suppose to output the next potential step. Do not output more than 1 steps. You have to output step No.before the step. If the answer can be derived from previous steps? if yes, output \\boxed{final answer}. If not, What is the potential next step based on the previous steps and question?'
 
 
-query = r'What is the potential next step or answer?'
-query_refine = r'What is the regenerated step?(output directly)'
+query = r"What is the potential next step or answer?"
+query_refine = r"What is the regenerated step?(output directly)"
 # verifier_prompt_template = (
 #     "You are a math question verifier."
 #     "Question:{Question}\n Context:{Context} \n to be verified step:{verified_step}\n"
 #     "The to be verified step is only one step for the solution process, so you don't need to consider whether the step solves the question or not.\n"
 # )
-verifier_prompt_template = '''
+verifier_prompt_template = """
     You are a math question verifier.
     Please answer '\\boxed{yes}' or '\\boxed{no}' and the reasons to verify whether the to be verified step can be derived from the Context without hallucination or error.\n
     Your response should be in the form of: results:\\boxed{no/yes} \n reasons:
@@ -482,10 +533,10 @@ verifier_prompt_template = '''
     \\reasons: since the asymptotes for $x^2+x-6$ is x=2 and x=-3, the number of asymptotes should be 2.
     
     #####    
-'''
-verifier_prompt_template2 =  "Context:{Context} \nTo be verified step:{verified_step}\n"
+"""
+verifier_prompt_template2 = "Context:{Context} \nTo be verified step:{verified_step}\n"
 
-self_refine_template = '''
+self_refine_template = """
 You are a math problem solver.Since the last step is incorrect, now you have to regenerate the last step based on the previous step, question and instruction.
 The instruction explains why the last step is incorrect. 
 
@@ -500,104 +551,108 @@ Instruction: $x^2+x-6$ doesn't equal to $(x-3)(x+2)$ but $(x-2)(x+3)$
 regenerated step: steps 3:factor $x^2+x-6$, which is $(x+3)(x-2)$
 
 #####
-'''
-self_refine_template2 = '{steps}\nTo be regenerated step: {target_step}\nInstruction: {instruction}\n\nregenerated step: '
-
-
-regenerate_prompt_template = (
-    "Please regenerate the last step based on the instruction:"
+"""
+self_refine_template2 = (
+    "{steps}\nTo be regenerated step: {target_step}\nInstruction: {instruction}\n\nregenerated step: "
 )
+
+
+regenerate_prompt_template = "Please regenerate the last step based on the instruction:"
 
 with jsonlines.open(input_file) as reader:
     for item in tqdm(islice(reader, start_line, end_line)):
-        Question = item['question']
+        Question = item["question"]
         # prompt = prompt_template+"Question:{}\n".format(Question)
         prompt = "Question:{}\n".format(Question)
         prompt_len = len(prompt)
-        i=0
+        i = 0
         regenerate = 0
         refine = 0
         while True:
-            prompt = prompt.replace("<|eot_id|>", "\n")+"<|eot_id|>"
-            print('*'*80)
-            print('\nprompt:\n', prompt, '\n')
-            print('*'*80)
-            if refine==0:
-                cc = sub_ContextCiter(model, tokenizer, prompt, query, generate_kwargs=generate_kwargs, num_ablations=num_ablations)
-            if refine>0:
-                cc = sub_refine_ContextCiter(model, tokenizer, prompt, query_refine, generate_kwargs=generate_kwargs, num_ablations=num_ablations)
+            prompt = prompt.replace("<|eot_id|>", "\n") + "<|eot_id|>"
+            print("*" * 80)
+            print("\nprompt:\n", prompt, "\n")
+            print("*" * 80)
+            if refine == 0:
+                cc = sub_ContextCiter(
+                    model, tokenizer, prompt, query, generate_kwargs=generate_kwargs, num_ablations=num_ablations
+                )
+            if refine > 0:
+                cc = sub_refine_ContextCiter(
+                    model, tokenizer, prompt, query_refine, generate_kwargs=generate_kwargs, num_ablations=num_ablations
+                )
             try:
                 generated_texts = cc.response
             except:
                 print("none type")
-            if count_steps(generated_texts)>=3 or len(generated_texts)<=10:
-                print('regenerating this step.')
-                regenerate +=1
-                if regenerate<=2:
+            if count_steps(generated_texts) >= 3 or len(generated_texts) <= 10:
+                print("regenerating this step.")
+                regenerate += 1
+                if regenerate <= 2:
                     continue
-                
+
             regenerate = 0
             raw_results = cc.get_attributions()
             indices = np.where(raw_results > threshold)[0]
             extract_context = [cc.sources[int(i)] for i in indices]
             filtered_context = [context for context in extract_context if context not in prompt]
-            Context = '\n'.join(filtered_context)
-            if refine==0:
-                Context0=Context
+            Context = "\n".join(filtered_context)
+            if refine == 0:
+                Context0 = Context
             # verify_prompt = verifier_prompt_template + verifier_prompt_template2.format(Question = Question, Context = Context0, verified_step = generated_texts)
-            verify_prompt = verifier_prompt_template2.format(Question = Question, Context = Context0, verified_step = generated_texts)
+            verify_prompt = verifier_prompt_template2.format(
+                Question=Question, Context=Context0, verified_step=generated_texts
+            )
             results, reasons = verify(verifier_pipe, verify_prompt)
             # results = True
             # reasons = ''
-            
-            if results == False and refine<=2:
-                if refine==0:
+
+            if results == False and refine <= 2:
+                if refine == 0:
                     prompt0 = prompt
                     step_prompt = prompt
-                    print('*'*80)
-                    print('step_prompt:',step_prompt)
-                    print('*'*80)
-                    print('self-refine-generated_text:',generated_texts)
-                    print('*'*80)
-                    prompt = self_refine_template2.format(steps=step_prompt, target_step = generated_texts, instruction = reasons)
-                    refine+=1
-                    print('\nself-refining\n')
+                    print("*" * 80)
+                    print("step_prompt:", step_prompt)
+                    print("*" * 80)
+                    print("self-refine-generated_text:", generated_texts)
+                    print("*" * 80)
+                    prompt = self_refine_template2.format(
+                        steps=step_prompt, target_step=generated_texts, instruction=reasons
+                    )
+                    refine += 1
+                    print("\nself-refining\n")
                     continue
                 else:
-                    print('*'*80)
-                    print('step_prompt:',step_prompt)
-                    print('*'*80)
-                    print('self-refine-generated_text:',generated_texts)
-                    print('*'*80)
-                    prompt = self_refine_template2.format(steps=step_prompt, target_step = generated_texts, instruction = reasons)
-                    refine+=1
-                    print('\nself-refining\n')
-                    continue 
-            elif refine>0:
-                print('*'*80)
-                print('step_prompt:',step_prompt)
-                print('*'*80)
-                print('self-refine-generated_text:',generated_texts)
-                print('*'*80)
+                    print("*" * 80)
+                    print("step_prompt:", step_prompt)
+                    print("*" * 80)
+                    print("self-refine-generated_text:", generated_texts)
+                    print("*" * 80)
+                    prompt = self_refine_template2.format(
+                        steps=step_prompt, target_step=generated_texts, instruction=reasons
+                    )
+                    refine += 1
+                    print("\nself-refining\n")
+                    continue
+            elif refine > 0:
+                print("*" * 80)
+                print("step_prompt:", step_prompt)
+                print("*" * 80)
+                print("self-refine-generated_text:", generated_texts)
+                print("*" * 80)
                 prompt = prompt0
                 refine = 0
-            
-            print('\nVerification bool results:', results)
+
+            print("\nVerification bool results:", results)
             # print('\ngenerated steps:\n', generated_texts, end = '\n')
-            if refine==0:
-                prompt = prompt+generated_texts
-            if r'\boxed' in generated_texts or i==25:
+            if refine == 0:
+                prompt = prompt + generated_texts
+            if r"\boxed" in generated_texts or i == 25:
                 final_answer = extract_boxed_content(generated_texts)
-                output_item = {
-                'question': Question,
-                'answer': final_answer
-            }
-        
+                output_item = {"question": Question, "answer": final_answer}
+
                 # 以追加模式写入结果
-                with jsonlines.open(output_file, mode='a') as writer:
+                with jsonlines.open(output_file, mode="a") as writer:
                     writer.write(output_item)
                 break
-            i+=1
-
-
-
+            i += 1
