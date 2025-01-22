@@ -81,6 +81,7 @@ sampled_lines = range(start - 1, end)  # -1 for 0-based indexing
 myrange = f"index[{start}-{end}]"
 path = model_path.split("/")[-1]
 output_file = "./rawLLM_" + myrange +"_"+path + "_result.jsonl"
+MAX_NEW_TOKENS = 1024
 print("The output_file is: " + output_file)
 
 # Update input file to use args.file
@@ -95,13 +96,10 @@ for line_num in tqdm(sampled_lines, desc="Processing sampled lines"):
         print("the line_num is :", line_num)
         Question = item["question"]
         prompt = prompt_template + "Question:{}\n".format(Question)
-        messages = [
-            {"role": "user", "content": prompt},
-        ]
-        print("#####the final prompt is#####: " + messages)
+        print("#####the final prompt is#####: " + prompt)
         i = 0
         while True:  # loop until it has \boxed{} format answer output
-            text = pipe(messages)[0]['generated_text']
+            text = pipe(prompt, do_sample=True, top_p=0.95, temperature=0.3, max_new_tokens=MAX_NEW_TOKENS)[0]['generated_text'][len(prompt):]
             print("#####the pipeline result text is#####: ", text)
             i+=1
             if r"\boxed" not in text:
