@@ -21,13 +21,10 @@ parser.add_argument(
     "--lineRange", type=int, nargs=2, required=True, help="Line range to process (e.g., --lineRange 1 500)"
 )
 parser.add_argument("--model_path", type=str, default=DEFAULT_MODEL_PATH, help="Path to the model to use")
-parser.add_argument(
-    "--max_new_tokens", type=int, default=DEFAULT_MAX_NEW_TOKENS, help="Maximum number of new tokens to generate"
-)
+
 args = parser.parse_args()
 
 model_path = args.model_path
-max_new_tokens = args.max_new_tokens
 
 # Handle device setting
 device = "auto" if args.device.lower() == "auto" else f"cuda:{args.device}"
