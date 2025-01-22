@@ -4,8 +4,8 @@ import sympy as sp
 from sympy.parsing.latex import parse_latex
 def parse_latex_e(latex_str):
     try:
-        expr = sp.sympify(expr, evaluate=True)
         expr = parse_latex(latex_str)
+        expr = sp.sympify(expr, evaluate=True)       
         return expr
     except Exception as e:
         print(f"Error parsing LaTeX: {e}")
