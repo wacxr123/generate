@@ -14,14 +14,14 @@ DEFAULT_MAX_NEW_TOKENS = 1024
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--device", type=str, default="auto", help='GPU device number (0,1,2,3) or "auto" for automatic device mapping'
+    "--device", type=str, default="auto", help='GPU device number (0,1,2,3) or "auto" for automatic device mapping (default: auto)'
 )
 parser.add_argument("--file", type=str, required=True, help="Input jsonl file path")
 parser.add_argument(
     "--lineRange", type=int, nargs=2, required=True, help="Line range to process (e.g., --lineRange 1 500)"
 )
-parser.add_argument("--model_path", type=str, default=DEFAULT_MODEL_PATH, help="Path to the model to use")
-parser.add_argument("--max_new_tokens", type=int, default=DEFAULT_MAX_NEW_TOKENS, help="Maximum number of new tokens to generate")
+parser.add_argument("--model_path", type=str, default=DEFAULT_MODEL_PATH, help=f"Path to the model to use (default: {DEFAULT_MODEL_PATH})")
+parser.add_argument("--max_new_tokens", type=int, default=DEFAULT_MAX_NEW_TOKENS, help=f"Maximum number of new tokens to generate (default: {DEFAULT_MAX_NEW_TOKENS})")
 args = parser.parse_args()
 
 model_path = args.model_path
