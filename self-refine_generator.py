@@ -112,7 +112,7 @@ class sub_ContextCiter(ContextCiter):
         messages = [
             {"role": "assistant", "content": system},
             {"role": "user", "content": prompt2},
-            {"role": "model", "content": few_shot_answer2},
+            {"role": "assistant", "content": few_shot_answer2},
         ]
         # messages.extend([{"role": "user", "content": prompt2}, {"role": "assistant", "content": few_shot_answer2}])
         messages.append({"role": "user", "content": final_prompt})
@@ -188,7 +188,7 @@ class sub_refine_ContextCiter(ContextCiter):
         messages = [
             {"role": "assistant", "content": system},
             {"role": "user", "content": prompt2},
-            {"role": "model", "content": few_shot_answer2},
+            {"role": "assistant", "content": few_shot_answer2},
         ]
         # messages.extend([{"role": "user", "content": prompt2}, {"role": "assistant", "content": few_shot_answer2}])
         messages.append({"role": "user", "content": final_prompt})
@@ -442,7 +442,7 @@ def verifier_generate_text(verifier_pipe, prompt, max_new_tokens):
         """,
         },
         {
-            "role": "model",
+            "role": "assistant",
             "content": """
          results:\\boxed{yes}
         \\reasons: since the asymptotes for $x^2+x-6$ is x=2 and x=-3, the number of asymptotes should be 2.
@@ -458,7 +458,7 @@ def verifier_generate_text(verifier_pipe, prompt, max_new_tokens):
         """,
         },
         {
-            "role": "model",
+            "role": "assistant",
             "content": """
          results:\\boxed{no}
         \\reasons: $x^2+x-6$ doesn't equal to $(x-3)(x+2)$ but $(x-2)(x+3)$.
@@ -476,7 +476,7 @@ def verifier_generate_text(verifier_pipe, prompt, max_new_tokens):
         """,
         },
         {
-            "role": "model",
+            "role": "assistant",
             "content": """
          results:\\boxed{No}
         \\reasons: The to be verifier step contains repetitive content. Please remove duplicate content.
@@ -485,7 +485,7 @@ def verifier_generate_text(verifier_pipe, prompt, max_new_tokens):
         {"role": "user", "content": prompt},
     ]
     outputs = verifier_pipe(
-        messages, do_sample=True, top_p=0.95, temperature=0.7, max_new_tokens=verifier_max_new_tokens
+        messages, do_sample=True, top_p=0.95, temperature=0.3, max_new_tokens=verifier_max_new_tokens
     )
     assistant_response = outputs[0]["generated_text"][-1]["content"].strip()
     return assistant_response
