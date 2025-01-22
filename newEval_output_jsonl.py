@@ -32,28 +32,20 @@ def compare_latex_answers(latex1, latex2):
         return False
 
 def calculate_accuracy(standard_file, model_file):
-    standard_data = {}
     with open(standard_file, 'r', encoding='utf-8') as f:
-        for line in f:
-            item = json.loads(line)
-            standard_data[item["question"]] = item["answer"]
-
-    model_data = {}
+        standard_data = {item["question"]: item["answer"] for line in f for item in [json.loads(line)]}
+    
     with open(model_file, 'r', encoding='utf-8') as f:
-        for line in f:
-            item = json.loads(line)
-            model_data[item["question"]] = item["answer"]
+        model_data = {item["question"]: item["answer"] for line in f for item in [json.loads(line)]}
+    
     correct = 0
-    total = 0
-    for question, answer in standard_data.items():
-        total += 1
-        if question in model_data:
-            if compare_latex_answers(answer, model_data[question]):
-                correct += 1
-
-    if total == 0:
-        return 0.0
-    return correct / total
+    total_questions = 0
+    for question, answer in model_data.items():
+        if question in standard_data and compare_latex_answers(standard_data[question], answer):
+            correct += 1
+        total_questions += 1
+    
+    return correct / total_questions
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
