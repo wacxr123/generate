@@ -39,7 +39,7 @@ else:
         "text-generation",
         model=model_path,
         torch_dtype=torch.bfloat16,
-        device=args.device
+        device=(int)(args.device)
     )
 
 
