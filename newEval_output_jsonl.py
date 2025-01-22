@@ -4,7 +4,12 @@ import sympy as sp
 from sympy.parsing.latex import parse_latex
 
 def parse_latex_e(latex_str):
+    if not latex_str.strip():  # Handle empty or whitespace-only strings
+        return None
     try:
+        # Pre-process percentage notation
+        latex_str = latex_str.replace(r'\%', r'/100')
+
         expr = parse_latex(latex_str)
         return expr
     except Exception as e:
@@ -45,6 +50,8 @@ def calculate_accuracy(standard_file, model_file):
         if question in model_data:
             if compare_latex_answers(answer, model_data[question]):
                 correct += 1
+        else:
+            print(f"Question '{question}' not found in model output.")
 
     if total == 0:
         return 0.0
