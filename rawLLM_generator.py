@@ -25,6 +25,7 @@ parser.add_argument("--max_new_tokens", type=int, default=DEFAULT_MAX_NEW_TOKENS
 args = parser.parse_args()
 
 model_path = args.model_path
+max_new_tokens = args.max_new_tokens
 
 # Handle device setting
 if args.device.lower() == "auto":
