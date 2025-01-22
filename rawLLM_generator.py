@@ -10,6 +10,7 @@ import argparse
 
 # Default constants
 DEFAULT_MODEL_PATH = "meta-llama/Llama-3.1-8B-Instruct"
+DEFAULT_MAX_NEW_TOKENS = 1024
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -20,7 +21,7 @@ parser.add_argument(
     "--lineRange", type=int, nargs=2, required=True, help="Line range to process (e.g., --lineRange 1 500)"
 )
 parser.add_argument("--model_path", type=str, default=DEFAULT_MODEL_PATH, help="Path to the model to use")
-
+parser.add_argument("--max_new_tokens", type=int, default=DEFAULT_MAX_NEW_TOKENS, help="Maximum number of new tokens to generate")
 args = parser.parse_args()
 
 model_path = args.model_path
@@ -81,7 +82,6 @@ sampled_lines = range(start - 1, end)  # -1 for 0-based indexing
 myrange = f"index[{start}-{end}]"
 path = model_path.split("/")[-1]
 output_file = "./rawLLM_" + myrange +"_"+path + "_result.jsonl"
-MAX_NEW_TOKENS = 1024
 print("The output_file is: " + output_file)
 
 # Update input file to use args.file
@@ -93,21 +93,21 @@ for line_num in tqdm(sampled_lines, desc="Processing sampled lines"):
         for current_line_num, item in enumerate(reader):
             if current_line_num == line_num:
                 break
-        print("the line_num is :", line_num)
+        print("=====the line_num is :=====", line_num)
         Question = item["question"]
         prompt = prompt_template + "Question:{}\n".format(Question)
-        print("#####the final prompt is#####: "+prompt)
+        print("=====the final prompt is=====: "+prompt)
         i = 0
         while True:  # loop until it has \boxed{} format answer output
-            text = pipe(prompt, do_sample=True, top_p=0.95, temperature=0.3, max_new_tokens=MAX_NEW_TOKENS)[0]['generated_text'][len(prompt):]
-            print("#####the pipeline result text is#####: ", text)
+            text = pipe(prompt, do_sample=True, top_p=0.95, temperature=0.3, max_new_tokens=max_new_tokens)[0]['generated_text'][len(prompt):]
+            print("=====the pipeline result text is=====: ", text)
             i+=1
             if r"\boxed" not in text:
                 continue
 
             if r"\boxed" in text or i == 5:  # all iter times should not be greater than 5
                 final_answer = extract_boxed_content(text)
-                print("#####the final_answer is#####: ", final_answer)
+                print("=====the final_answer is=====: ", final_answer)
                 output_item = {"question": Question, "answer": final_answer}
                 # Use write mode ('w') for first item, append ('a') for others
                 mode = "w" if line_num == sampled_lines[0] else "a"
