@@ -86,36 +86,34 @@ print("The output_file is: " + output_file)
 # Update input file to use args.file
 input_file = args.file
 
-def data_itr():
-    # Read only the sampled lines
-    for line_num in tqdm(sampled_lines, desc="Processing sampled lines"):
-        with jsonlines.open(input_file) as reader:
-            for current_line_num, item in enumerate(reader):
-                if current_line_num == line_num:
-                    break
-            print("the line_num is :", line_num)
-            Question = item["question"]
-            prompt = prompt_template + "Question:{}\n".format(Question)
-            print("#####the final prompt is#####: " + prompt)
-            yield prompt
-        
-for out in pipe(data_itr()):
-    print(out[0]["generated_text"])
-# i = 0
-# while True:  # loop until it has \boxed{} format answer output
-#     text = pipe(prompt)[0]["generated_text"][len(prompt):]
-#     print("#####the pipeline result text is#####: ", text)
-#     i+=1
-#     if r"\boxed" not in text:
-#         continue
+# Read only the sampled lines
+for line_num in tqdm(sampled_lines, desc="Processing sampled lines"):
+    with jsonlines.open(input_file) as reader:
+        for current_line_num, item in enumerate(reader):
+            if current_line_num == line_num:
+                break
+        print("the line_num is :", line_num)
+        Question = item["question"]
+        prompt = prompt_template + "Question:{}\n".format(Question)
+        messages = [
+            {"role": "user", "content": prompt},
+        ]
+        print("#####the final prompt is#####: " + messages)
+        i = 0
+        while True:  # loop until it has \boxed{} format answer output
+            text = pipe(messages)[0]['generated_text']
+            print("#####the pipeline result text is#####: ", text)
+            i+=1
+            if r"\boxed" not in text:
+                continue
 
-#     if r"\boxed" in text or i == 5:  # all iter times should not be greater than 5
-#         final_answer = extract_boxed_content(text)
-#         print("#####the final_answer is#####: ", final_answer)
-#         output_item = {"question": Question, "answer": final_answer}
-#         # Use write mode ('w') for first item, append ('a') for others
-#         mode = "w" if line_num == sampled_lines[0] else "a"
-#         with jsonlines.open(output_file, mode=mode) as writer:
-#             writer.write(output_item)
-#         break
-#     print("No \boxed found, regenerating......\n")
+            if r"\boxed" in text or i == 5:  # all iter times should not be greater than 5
+                final_answer = extract_boxed_content(text)
+                print("#####the final_answer is#####: ", final_answer)
+                output_item = {"question": Question, "answer": final_answer}
+                # Use write mode ('w') for first item, append ('a') for others
+                mode = "w" if line_num == sampled_lines[0] else "a"
+                with jsonlines.open(output_file, mode=mode) as writer:
+                    writer.write(output_item)
+                break
+            print("No \boxed found, regenerating......\n")
