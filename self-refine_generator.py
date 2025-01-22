@@ -405,7 +405,7 @@ def verifier_generate_text(verifier_pipe, prompt, max_new_tokens):
     assistant_response = outputs[0]["generated_text"][-1]["content"].strip()
     return assistant_response
 
-query = r"What is the potential next step or answer?"
+query = r"Print next step. One Step only."
 query_refine = r"What is the regenerated step?(output directly)"
 
 verifier_prompt_template = """
@@ -436,7 +436,7 @@ verifier_prompt_template = """
     
     #####    
 """
-verifier_prompt_template2 = "Context:{Context} \nTo be verified step:{verified_step}\n"
+verifier_prompt_template2 = "Context:{Context} \n To be verified step: {verified_step}\n"
 
 self_refine_template = """
 You are a math problem solver.Since the last step is incorrect, now you have to regenerate the last step based on the previous step, question and instruction.
@@ -467,6 +467,7 @@ with jsonlines.open(input_file) as reader:
         # prompt = prompt_template+"Question:{}\n".format(Question)
         prompt = "Question:{}\n".format(Question)
         prompt_len = len(prompt)
+        # breakpoint()
         i = 0
         regenerate = 0
         refine = 0
