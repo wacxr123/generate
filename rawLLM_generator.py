@@ -26,15 +26,21 @@ args = parser.parse_args()
 model_path = args.model_path
 
 # Handle device setting
-device = "auto" if args.device.lower() == "auto" else f"cuda:{args.device}"
-
-# Create pipeline directly instead of loading model and tokenizer separately
-pipe = pipeline(
-    "text-generation",
-    model=model_path,
-    torch_dtype=torch.bfloat16,
-    device_map=device,
-)
+if args.device.lower() == "auto":
+    # Create pipeline directly instead of loading model and tokenizer separately
+    pipe = pipeline(
+        "text-generation",
+        model=model_path,
+        torch_dtype=torch.bfloat16,
+        device_map="auto"
+    )
+else:
+    pipe = pipeline(
+        "text-generation",
+        model=model_path,
+        torch_dtype=torch.bfloat16,
+        device=args.device
+    )
 
 
 def extract_boxed_content(text: str) -> str:
