@@ -50,8 +50,6 @@ def calculate_accuracy(standard_file, model_file):
         if question in model_data:
             if compare_latex_answers(answer, model_data[question]):
                 correct += 1
-        else:
-            print(f"Question '{question}' not found in model output.")
 
     if total == 0:
         return 0.0
