@@ -29,14 +29,12 @@ model_path = args.model_path
 if args.device.lower() == "auto":
     # Create pipeline directly instead of loading model and tokenizer separately
     pipe = pipeline(
-        "text-generation",
         model=model_path,
         torch_dtype=torch.bfloat16,
         device_map="auto"
     )
 else:
     pipe = pipeline(
-        "text-generation",
         model=model_path,
         torch_dtype=torch.bfloat16,
         device=(int)(args.device)
@@ -100,9 +98,9 @@ for line_num in tqdm(sampled_lines, desc="Processing sampled lines"):
         print("#####the final prompt is#####: " + prompt)
         i = 0
         while True:  # loop until it has \boxed{} format answer output
-            text = pipe(prompt)
+            text = pipe(prompt)[0]['generated_text'][len(prompt):]
             print("#####the pipeline result text is#####: ", text)
-
+            i+=1
             if r"\boxed" not in text:
                 continue
 
@@ -116,4 +114,3 @@ for line_num in tqdm(sampled_lines, desc="Processing sampled lines"):
                     writer.write(output_item)
                 break
             print("No \boxed found, regenerating......\n")
-            i += 1
