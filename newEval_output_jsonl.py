@@ -9,13 +9,12 @@ def parse_latex_e(latex_str):
         print(f"LaTeX parsing error: {e}")
         return None
     try:
-        
         expr = sp.sympify(expr, evaluate=True)
         return expr
     except Exception as e:
         print(f"Error parsing LaTeX: {e}")
         return None
-
+    
 def compare_latex_answers(latex1, latex2):
     expr1 = parse_latex_e(latex1)
     expr2 = parse_latex_e(latex2)
@@ -23,17 +22,23 @@ def compare_latex_answers(latex1, latex2):
     if expr1 is None or expr2 is None:
         return False
 
-    expr1_simplified = sp.expand(expr1)  
-    expr2_simplified = sp.expand(expr2)  
+    expr1_simplified = sp.expand(expr1) 
+    expr2_simplified = sp.expand(expr2) 
 
     return expr1_simplified == expr2_simplified
 
 def calculate_accuracy(standard_file, model_file):
+    standard_data = {}
     with open(standard_file, 'r', encoding='utf-8') as f:
-        standard_data = {item["question"]: item["answer"] for item in json.load(f)}
+        for line in f:
+            item = json.loads(line)
+            standard_data[item["question"]] = item["answer"]
+
+    model_data = {}
     with open(model_file, 'r', encoding='utf-8') as f:
-        model_data = {item["question"]: item["answer"] for item in json.load(f)}
-    
+        for line in f:
+            item = json.loads(line)
+            model_data[item["question"]] = item["answer"]
     correct = 0
     for question, answer in model_data.items():
         if question in standard_data and compare_latex_answers(standard_data[question], answer):
@@ -49,4 +54,5 @@ if __name__ == "__main__":
     model_file = sys.argv[2]
     accuracy = calculate_accuracy(standard_file, model_file)
     print("Accuracy:", accuracy)
+
 
