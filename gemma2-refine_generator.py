@@ -337,7 +337,7 @@ verifier_pipe = pipeline(
 def verifier_generate_text(verifier_pipe, prompt, max_new_tokens):
     messages = [
         {
-            "role": "assistant",
+            "role": "user",
             "content": """
         You are a math question verifier.
         Please answer '\\boxed{yes}' or '\\boxed{no}' and the reasons to verify whether the to be verified step has calculation error or logical inconsistency based on the context.
@@ -345,6 +345,10 @@ def verifier_generate_text(verifier_pipe, prompt, max_new_tokens):
         Output \\boxed{yes} as much as possible, since we could accept minor mistake.If it's not a fatal error, please answer \\boxed{yes}.
         If the 'to be verified step' contains repetitive content, Please answer \\boxed{no}
         Your response should be in the form of: results:\\boxed{no/yes} \n reasons:""",
+        },
+         {
+            "role": "assistant",
+            "content":"Sure!",
         },
         {
             "role": "user",
