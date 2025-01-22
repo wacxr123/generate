@@ -96,7 +96,11 @@ for line_num in tqdm(sampled_lines, desc="Processing sampled lines"):
         print("the line_num is :", line_num)
         Question = item["question"]
         prompt = prompt_template + "Question:{}\n".format(Question)
-        print("#####the final prompt is#####: " + prompt)
+        messages = [
+            {"role": "user", "content": prompt},
+        ]
+        print("#####the final prompt is#####: ")
+        print(messages)
         i = 0
         while True:  # loop until it has \boxed{} format answer output
             text = pipe(prompt, do_sample=True, top_p=0.95, temperature=0.3, max_new_tokens=MAX_NEW_TOKENS)[0]['generated_text'][len(prompt):]
