@@ -7,20 +7,7 @@ def parse_latex_e(latex_str):
     if not latex_str.strip():  # Handle empty or whitespace-only strings
         return None
     
-    # Preprocess LaTeX to handle tuple notation and other common cases
-    latex_str = latex_str.replace(r'\%', r'/100')  # Handle percentage notation
-    latex_str = latex_str.replace(r'\infty', 'oo')  # Substitute infinity with 'oo'
     
-    # Preprocess tuple-style inputs (e.g., (3, \frac{\pi}{2}))
-    latex_str = latex_str.replace(r'(', ' ').replace(r')', '')  # Temporarily replace parentheses
-    latex_str = latex_str.replace(r' ', ',')  # Replace spaces with commas for tuples
-    
-    # Fix specific LaTeX notation (e.g., frac -> sympy fraction)
-    latex_str = latex_str.replace(r'\frac', '/')
-    
-    # Further sanitize LaTeX input for matrix or vector notation (e.g., handle \pm, \sqrt, etc.)
-    latex_str = latex_str.replace(r'\left(', '(').replace(r'\right)', ')')
-    latex_str = latex_str.replace(r'\left[', '[').replace(r'\right]', ']')
     try:
         expr = parse_latex(latex_str)  # Use sympy to parse LaTeX
         return expr
