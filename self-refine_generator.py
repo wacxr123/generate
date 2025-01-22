@@ -1,4 +1,4 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from transformers import StoppingCriteria, StoppingCriteriaList
 import torch
 from typing import Dict, Any, Optional, List
@@ -9,17 +9,17 @@ import jsonlines
 from tqdm import tqdm
 from itertools import islice
 
-device='cuda:2'
-verifier_device = 'cuda:2'
+device='cuda:0'
+verifier_device = 'cuda:0'
 max_new_tokens = 512
 verifier_max_new_tokens = 256
 model_path = "meta-llama/Llama-3.1-8B-Instruct"
-verifier_model_path = "meta-llama/Llama-3.1-8B-Instruct"
+verifier_model_path = "meta-llama/Llama-3.1-8B-Instruct" #gemma(verifier模型)
 num_votes = 1
-input_file = "./math_testset_annotation.jsonl"
-output_file = "./output_0119_sumary.jsonl"
-start_line = 3
-end_line = 4
+input_file = "./MATH_500.jsonl"
+output_file = "./output_0121-default_config_no_refine_full.jsonl"
+start_line = 30
+end_line = 499
 threshold = 1e-7
 
 tokenizer = AutoTokenizer.from_pretrained(model_path, padding = False)
@@ -32,6 +32,7 @@ model = AutoModelForCausalLM.from_pretrained(model_path,
         #device_map="auto"
         ).to(device)
 
+
 # verifier_tokenizer = AutoTokenizer.from_pretrained(verifier_model_path, padding = False)
 # # tokenizer.padding_side = 'right'
 # # tokenizer.pad_token = tokenizer.eos_token
@@ -41,12 +42,12 @@ model = AutoModelForCausalLM.from_pretrained(model_path,
 #         ##low_cpu_mem_usage=True,
 #         #device_map="auto"
 #         ).to(verifier_device )
-verifier_tokenizer = tokenizer
-verifier_model = model
+# verifier_tokenizer = tokenizer
+# verifier_model = model
 
 stop_words = ["###"," ###", "#", "#####", "### ", "##### ", " #####"]
 stop_words_ids = [tokenizer.encode(stop_word, add_special_tokens=False) for stop_word in stop_words]
-
+    
 class sub_ContextCiter(ContextCiter):
     def __init__(
         self,
@@ -55,22 +56,58 @@ class sub_ContextCiter(ContextCiter):
         context: str,
         query: str,
         generate_kwargs: Optional[Dict[str, Any]] = None,
-        prompt_template = '',
+        prompt_template = "Context: {context}\n\nInstruction: {query}",
+        num_ablations = 64,
     ) -> None:
-        super().__init__(model, tokenizer, context, query, generate_kwargs = generate_kwargs, prompt_template = prompt_template)
+        super().__init__(model, tokenizer, context, query, generate_kwargs = generate_kwargs, prompt_template = prompt_template, num_ablations=num_ablations)
+    
+    # def _get_prompt_ids(
+    #     self,
+    #     mask = None,
+    #     return_prompt: bool = False,
+    # ):
+    #     context = self.partitioner.get_context(mask)
+    #     prompt = self.prompt_template.format(context=context, query=self.query)
+    
+    #     chat_prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False)
 
+    #     if return_prompt:
+    #         return chat_prompt_ids, prompt
+    #     else:
+    #         return chat_prompt_ids
+    
     def _get_prompt_ids(
         self,
         mask = None,
         return_prompt: bool = False,
     ):
         context = self.partitioner.get_context(mask)
-        prompt = self.prompt_template.format(context=context, query=self.query)
-    
-        chat_prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False)
+        final_prompt = self.prompt_template.format(context=context, query=self.query)
+        system = r'You are a math problem solver trying to solve the Question demonstrated in the context step by step. If the answer can be derived from previous step, please output the final answer with \boxed{} directly!If not, please output the next potential step based on the previous steps and question with Step No.in the front. . Please only output 1 step everytime.'
+        few_shot_context1 = r'''Question: Evaluate $i^5+i^{-25}+i^{45}$.
+        Step 1: The powers of $i$ follow a cyclical pattern: $i^1 = i$, $i^2 = -1$, $i^3 = -i$, $i^4 = 1$, and then the cycle repeats. 
+        We can use this pattern to simplify each term in the expression. 
+        '''
+        few_shot_answer1 = r'Step 2: For $i^5$, we can rewrite it as $i^4 \cdot i$, which simplifies to $1 \cdot i = i$. For $i^{-25}$, we can rewrite it as $\frac{1}{i^{25}}$. Since $i^{25}$ is equivalent to $(i^4)^6 \cdot i$, and $i^4 = 1$, we have $i^{25} = 1^6 \cdot i = i$.'
+        few_shot_context2 = r'''Question: What power of 4 is equal to 8? \
+        Step 1: Express 8 as a power of 2: $8 = 2^3$
+        Step 2:Express 4 as a power of 2: $4 = 2^2$
+        Step 3:Equate the exponents: $2x = 3$ $x=\frac{3}{2}$'''
+        few_shot_answer2 = r'''Final answer can be derived from previous steps, which is \boxed{\frac{3}{2}}
+        '''
+        prompt1 =  self.prompt_template.format(context=few_shot_context1, query=self.query) 
+        prompt2 =  self.prompt_template.format(context=few_shot_context2, query=self.query)  
+        messages = [{"role": "system", "content": system}, {"role": "user", "content": prompt2}, {"role": "model", "content": few_shot_answer2}]
+        # messages.extend([{"role": "user", "content": prompt2}, {"role": "assistant", "content": few_shot_answer2}])
+        messages.append({"role": "user", "content": final_prompt})
+        # print(messages)
+        chat_prompt = self.tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        chat_prompt_ids = self.tokenizer.encode(chat_prompt, add_special_tokens=False)
 
         if return_prompt:
-            return chat_prompt_ids, prompt
+            return chat_prompt_ids, chat_prompt
         else:
             return chat_prompt_ids
     
@@ -96,15 +133,15 @@ def generate(model, tokenizer, prompt):
     outputs = model.generate(
         **inputs,
         max_new_tokens=256,
-        num_return_sequences=num_votes,
-        do_sample=True,
-        top_k=50,
-        top_p=0.95,
-        temperature=0.3,
+        #num_return_sequences=num_votes,
+        #do_sample=True,
+        #top_k=50,
+        #top_p=0.95,
+        #temperature=0.3,
+        #num_beams=2,
+        # repetition_penalty=1.2,
+        #no_repeat_ngram_size=3
         stopping_criteria=stopping_criteria,
-        num_beams=2,
-        repetition_penalty=1.2,
-        no_repeat_ngram_size=3
     )
     generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
     # print(generated_texts[0])
@@ -154,7 +191,7 @@ def extract_reasons(text: str) -> str:
         return '. '.join(result)
     
     return ""
-def verify(model, tokenizer, prompt) -> bool:
+def verify(verifier_pipe, prompt) -> bool:
     """
     生成文本并检查第一个\boxed{}中的答案
     Args:
@@ -165,26 +202,32 @@ def verify(model, tokenizer, prompt) -> bool:
         bool: True 如果是 yes 或没有 \boxed，False 如果是 no
     """
     # 获取生成的文本，去掉prompt部分
-    text = generate(model, tokenizer, prompt)[len(prompt):]
-    print('*'*80)
-    print('\n verification results:\n', text)
-    print('*'*80)
-    
-    reasons = extract_reasons(text)
-    # 如果文本不含\boxed，返回True
-    if r'\boxed' not in text:
-        return True, reasons
-    
-    # 查找第一个\boxed{}中的内容
-    pattern = r'\\boxed{([^}]*)}'
-    match = re.search(pattern, text)
-    
-    if match:
-        answer = match.group(1).strip().lower()
-        # 返回True如果是yes，False如果是no
-        return 'no' not in answer, reasons
-    
-    # 如果没有找到匹配（但有\boxed），返回True
+    for i in range(3):
+        # verifier_cc = sub_ContextCiter(model, tokenizer, prompt, '', generate_kwargs=verifier_generate_kwargs, prompt_template='{context}', num_ablations=1)
+        # text = generate(model, tokenizer, prompt)[len(prompt):]
+        # text = verifier_cc.response
+        text = verifier_generate_text(verifier_pipe, prompt, max_new_tokens)
+        print('*'*80)
+        print('\n verification results:\n', text)
+        print('*'*80)
+        
+        reasons = extract_reasons(text)
+        # 如果文本不含\boxed，返回True
+        if r'\boxed' not in text:
+            continue
+        
+        # 查找第一个\boxed{}中的内容
+        pattern = r'\\boxed{([^}]*)}'
+        match = re.search(pattern, text)
+        
+        if match:
+            answer = match.group(1).strip().lower()
+            # 返回True如果是yes，False如果是no
+            if ('no' not in answer) and ('yes' not in answer):
+                continue
+        
+        # 如果没有找到匹配（但有\boxed），返回True
+            return 'no' not in answer, reasons
     return True, reasons
 
 def count_steps(text: str) -> int:
@@ -251,19 +294,89 @@ stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(stops = stop_words
 
 generate_kwargs = {
     'max_new_tokens': max_new_tokens,
-    'num_return_sequences': num_votes,
-    'do_sample': True,
-    'top_k': 32,
+    #'num_return_sequences': num_votes,
+    #'do_sample': True,
+    #'top_k': 32,
+    # 'temperature': 0.3,
+    #'repetition_penalty':1.2,
+    #'stopping_criteria': stopping_criteria,
+}
+
+verifier_generate_kwargs = {
+    'max_new_tokens': max_new_tokens,
+    #'num_return_sequences': num_votes,
+    #'do_sample': True,
+    #'top_k': 32,
     'temperature': 0.3,
+    #'repetition_penalty':1.2,
     'stopping_criteria': stopping_criteria,
 }
 
-prompt_template = (
-    "You are a math problem solver. Please answer the question step by step. At the begin of each step please signify the step No. in the form 'Step No.:'. "
-    "At the end of each step please output '###' to signify the end of the step.For example, in the first step, you should write in the form 'Step 1: ...\n ###'for the first step\n\n"
-    r"Please write the final answer with \boxed{} ###\n"
-)
+# verifier_pipe = pipeline(
+#     "text-generation",
+#     model=verifier_model_path,
+#     model_kwargs={"torch_dtype": torch.bfloat16},
+#     device=verifier_device,  
+# )
 
+def verifier_generate_text(verifier_pipe, prompt, max_new_tokens):
+    messages = [
+        {"role": "system", "content": '''
+        You are a math question verifier.
+        Please answer '\\boxed{yes}' or '\\boxed{no}' and the reasons to verify whether the to be verified step can be derived from the Context without hallucination or error.
+        If the 'to be verified step' contains duplicate content, Please answer \\boxed{no}
+        If it's not a fatal error, please do not answer \\boxed{no}. Answer \\boxed{yes} as much as possible, since we could accept minor mistake.
+        Your response should be in the form of: results:\\boxed{no/yes} \n reasons:'''},
+        {"role": "user", "content": '''
+         Context: Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?
+        Step 1: to determine the asymptotes, we should find the zero point of $y=\\frac{2}{x^2+x-6}$.
+        To be verified step: 
+        factor $x^2+x-6$, which is $(x-3)(x+2)$
+        '''},
+        {"role": "model", "content":'''
+         results:\\boxed{no}
+        \\reasons: $x^2+x-6$ doesn't equal to $(x-3)(x+2)$ but $(x-2)(x+3)$.
+         '''
+        },
+        {"role": "user", "content": '''
+        Context: Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?
+        Step 1: to determine the asymptotes, we should find the zero point of $y=\\frac{2}{x^2+x-6}$.
+        Step 4: the asymptotes for $x^2+x-6$ should be x=2 and x = -3.
+        To be verified step: 
+        So the number of asymptotes should be 2.
+        '''},
+        {"role": "model", "content":'''
+         results:\\boxed{yes}
+        \\reasons: since the asymptotes for $x^2+x-6$ is x=2 and x=-3, the number of asymptotes should be 2.
+         '''
+        },
+        {"role": "user", "content": '''
+        Context: Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?
+        Step 1: to determine the asymptotes, we should find the zero point of $y=\\frac{2}{x^2+x-6}$.
+        Step 4: the asymptotes for $x^2+x-6$ should be x=2 and x = -3.
+        To be verified step: 
+        So the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.
+        '''},
+        {"role": "model", "content":'''
+         results:\\boxed{No}
+        \\reasons: The to be verifier step contains duplicate content. Please remove duplicate content.
+         '''
+        },
+        {"role": "user", "content": prompt},
+    ]
+    outputs = verifier_pipe(messages, do_sample=True, top_p=0.95, temperature=0.7, max_new_tokens=verifier_max_new_tokens)
+    assistant_response = outputs[0]["generated_text"][-1]["content"].strip()
+    return assistant_response
+
+# prompt_template = (
+#     "You are a math problem solver. Please answer the question step by step. At the begin of each step please signify the step No. in the form 'Step No.:'. "
+#     "At the end of each step please output '###' to signify the end of the step.For example, in the first step, you should write in the form 'Step 1: ...\n ###'for the first step\n\n"
+#     r"Please write the final answer with \boxed{} ###\n"
+# )
+# query = 'You are a math problem solver. You are suppose to output the next potential step. Do not output more than 1 steps. You have to output step No.before the step. If the answer can be derived from previous steps? if yes, output \\boxed{final answer}. If not, What is the potential next step based on the previous steps and question?'
+
+
+query = r'What is the potential next step or answer?'
 # verifier_prompt_template = (
 #     "You are a math question verifier."
 #     "Question:{Question}\n Context:{Context} \n to be verified step:{verified_step}\n"
@@ -276,7 +389,7 @@ verifier_prompt_template = '''
     
     #####
     
-    Coutext: Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?
+    Context: Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?
     Step 1: to determine the asymptotes, we should find the zero point of $y=\\frac{2}{x^2+x-6}$.
     To be verified step: 
     factor $x^2+x-6$, which is $(x-3)(x+2)$
@@ -286,7 +399,7 @@ verifier_prompt_template = '''
     
     #####
     
-    Coutext: Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?
+    Context: Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?
     Step 1: to determine the asymptotes, we should find the zero point of $y=\\frac{2}{x^2+x-6}$.
     Step 4: the asymptotes for $x^2+x-6$ should be x=2 and x = -3.
     To be verified step: 
@@ -325,21 +438,23 @@ regenerate_prompt_template = (
 with jsonlines.open(input_file) as reader:
     for item in tqdm(islice(reader, start_line, end_line)):
         Question = item['question']
-        prompt = prompt_template+"Question:{}\n".format(Question)
+        # prompt = prompt_template+"Question:{}\n".format(Question)
+        prompt = "Question:{}\n".format(Question)
         prompt_len = len(prompt)
         i=0
         regenerate = 0
         refine = 0
         while True:
+            prompt = prompt.replace("<|eot_id|>", "\n")+"<|eot_id|>"
             print('*'*80)
             print('\nprompt:\n', prompt, '\n')
             print('*'*80)
-            cc = sub_ContextCiter(model, tokenizer, prompt, '', generate_kwargs=generate_kwargs, prompt_template='{context}')
+            cc = sub_ContextCiter(model, tokenizer, prompt, query, generate_kwargs=generate_kwargs, num_ablations=1)
             try:
                 generated_texts = cc.response
             except:
                 print("none type")
-            if count_steps(generated_texts)>=3:
+            if count_steps(generated_texts)>=3 or len(generated_texts)<=10:
                 print('regenerating this step.')
                 regenerate +=1
                 if regenerate<=2:
@@ -349,15 +464,20 @@ with jsonlines.open(input_file) as reader:
             raw_results = cc.get_attributions()
             indices = np.where(raw_results > threshold)[0]
             extract_context = [cc.sources[int(i)] for i in indices]
-            filtered_context = [context for context in extract_context if context not in prompt_template]
+            filtered_context = [context for context in extract_context if context not in prompt]
             Context = '\n'.join(filtered_context)
-            verify_prompt = verifier_prompt_template + verifier_prompt_template2.format(Question = Question, Context = Context, verified_step = generated_texts)
-            results, reasons = verify(verifier_model, verifier_tokenizer, verify_prompt)
+            if refine==0:
+                Context0=Context
+            # verify_prompt = verifier_prompt_template + verifier_prompt_template2.format(Question = Question, Context = Context0, verified_step = generated_texts)
+            verify_prompt = verifier_prompt_template2.format(Question = Question, Context = Context0, verified_step = generated_texts)
+            # results, reasons = verify(verifier_pipe, verify_prompt)
+            results = True
+            reasons = ''
             
             if results == False and refine<=2:
                 if refine==0:
                     prompt0 = prompt
-                    step_prompt = remove_prefix(prompt, prompt_template)
+                    step_prompt = prompt
                     print('*'*80)
                     print('step_prompt:',step_prompt)
                     print('*'*80)
