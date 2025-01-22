@@ -82,7 +82,7 @@ start, end = args.lineRange
 sampled_lines = range(start - 1, end)  # -1 for 0-based indexing
 myrange = f"index[{start}-{end}]"
 path = model_path.split("/")[-1]
-output_file = "./rawLLM_" + myrange + path + "_result.jsonl"
+output_file = "./rawLLM_" + myrange +"_"+path + "_result.jsonl"
 print("The output_file is: " + output_file)
 
 # Update input file to use args.file
