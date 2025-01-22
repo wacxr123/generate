@@ -16,7 +16,7 @@ def parse_latex_e(latex_str):
     latex_str = latex_str.replace(r'\left[', '[').replace(r'\right]', ']')
 
     try:
-        expr = sp.sympify(latex_str)  # Use sympy to parse LaTeX
+        expr = parse_latex(latex_str)  # Use sympy to parse LaTeX
         return expr
     except Exception as e:
         print(f"Error parsing LaTeX: {e} for input: '{latex_str}'")
