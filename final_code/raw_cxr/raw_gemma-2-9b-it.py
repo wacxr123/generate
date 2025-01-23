@@ -17,8 +17,8 @@ verifier_max_new_tokens = 256
 model_path = "google/gemma-2-9b-it"
 verifier_model_path = "google/gemma-2-9b-it"  # THIS IS USELESS! OCCUPATION ONLY!
 num_votes = 1
-input_file = "../MATH_500.jsonl"
-output_file = "../res_gemma2_raw.jsonl"
+input_file = "./MATH_500.jsonl"
+output_file = "./res_gemma2_raw.jsonl"
 start_line = 0
 end_line = 150
 threshold = 1e-7
@@ -26,7 +26,8 @@ num_ablations = 1
 
 tokenizer = AutoTokenizer.from_pretrained(model_path, padding=False)
 
-model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.bfloat16).to(device)
+model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype='auto').to(device)
+model.to(torch.half)
 
 stop_words = ["###", " ###", "#", "#####", "### ", "##### ", " #####"]
 stop_words_ids = [tokenizer.encode(stop_word, add_special_tokens=False) for stop_word in stop_words]
@@ -324,12 +325,12 @@ verifier_generate_kwargs = {
     "stopping_criteria": stopping_criteria,
 }
 
-verifier_pipe = pipeline(
-    "text-generation",
-    model=verifier_model_path,
-    # model_kwargs={"torch_dtype": torch.bfloat16},
-    device=verifier_device,
-)
+#verifier_pipe = pipeline(
+#    "text-generation",
+#    model=verifier_model_path,
+#    # model_kwargs={"torch_dtype": torch.bfloat16},
+#    device=verifier_device,
+#)
 
 
 def verifier_generate_text(verifier_pipe, prompt, max_new_tokens):

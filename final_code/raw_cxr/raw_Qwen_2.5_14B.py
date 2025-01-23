@@ -16,9 +16,8 @@ verifier_max_new_tokens = 256
 model_path = "Qwen/Qwen2.5-14B-Instruct"
 verifier_model_path = "google/gemma-2-9b-it"  # THIS IS USELESS! OCCUPATION ONLY!
 num_votes = 1
-# input_file = "./MATH_500.jsonl"
-input_file = "../MATH_500.jsonl"
-output_file = "../res_Qwen2.5_raw.jsonl"
+input_file = "./MATH_500.jsonl"
+output_file = "./res_Qwen2.5_raw.jsonl"
 start_line = 0
 end_line = 150
 threshold = 1e-7
@@ -324,12 +323,12 @@ verifier_generate_kwargs = {
     "stopping_criteria": stopping_criteria,
 }
 
-verifier_pipe = pipeline(
-    "text-generation",
-    model=verifier_model_path,
-    model_kwargs={"torch_dtype": torch.bfloat16},
-    device=verifier_device,
-)
+#verifier_pipe = pipeline(
+#    "text-generation",
+ #   model=verifier_model_path,
+ #   model_kwargs={"torch_dtype": torch.bfloat16},
+ #   device=verifier_device,
+#)
 
 
 def verifier_generate_text(verifier_pipe, prompt, max_new_tokens):
