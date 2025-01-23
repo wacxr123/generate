@@ -9,18 +9,18 @@ import jsonlines
 from tqdm import tqdm
 from itertools import islice
 
-device = "cuda:2"
-verifier_device = "cuda:1"
+device = "cuda:4"
+verifier_device = "cuda:4"
 max_new_tokens = 512
 verifier_max_new_tokens = 256
-model_path = "Qwen/Qwen2.5-Math-7B-Instruct"
-verifier_model_path = "google/gemma-2-9b-it"  # gemma(verifier模型)
+model_path = "meta-llama/Llama-3.1-8B-Instruct"
+verifier_model_path = "/mnt/d2/wyin/Hera/LLM-for-Math/Direct_Verifier/code/results/new_model_v2/verifier_final_model"  # gemma(verifier模型)
 num_votes = 1
 # input_file = "./MATH_500.jsonl"
-input_file = "./MATH_500.jsonl"
-output_file = "./output_0122_self-refine_no_summary_qwen.jsonl"
+input_file = "../MATH_500.jsonl"
+output_file = "../output_0122_self-refine_ours_no_summary_.jsonl"
 start_line = 0
-end_line = 250
+end_line = 150
 threshold = -1e7
 num_ablations = 1
 
@@ -173,14 +173,14 @@ def generate(model, tokenizer, prompt):
 
 def extract_reasons(text: str) -> str:
     """
-    提取文本中'reasons:'之后到第一个#之前的内容，并去除连续重复3次以上的句子
+    提取文本中'**Explanation:**'之后到第一个#之前的内容，并去除连续重复3次以上的句子
     Args:
-        text: 包含reasons:的文本
+        text: 包含**Explanation:**的文本
     Returns:
-        str: reasons后面到第一个#之前的内容，去除重复后的结果，如果没找到返回空字符串
+        str: **Explanation:**后面到第一个#之前的内容，去除重复后的结果，如果没找到返回空字符串
     """
-    # 使用正则表达式查找reasons:后到第一个#之前的所有内容
-    pattern = r"reasons:(.*?)(?=#|$)"  # 匹配到第一个#或文本结束
+    # 使用正则表达式查找**Explanation:**后到第一个#之前的所有内容
+    pattern = r"Explanation:(.*?)(?=#|$)"  # 匹配到第一个#或文本结束
     match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)  # DOTALL让.也能匹配换行符
 
     if match:
@@ -243,10 +243,10 @@ def verify(verifier_pipe, prompt) -> bool:
         if match:
             answer = match.group(1).strip().lower()
             # 返回True如果是yes，False如果是no
-            if ("no" not in answer) and ("yes" not in answer):
+            if ("No" not in answer) and ("Yes" not in answer):
                 continue
             # 如果没有找到匹配（但有\boxed），返回True
-            return "no" not in answer, reasons
+            return "No" not in answer, reasons
     return True, reasons
 
 
@@ -340,8 +340,7 @@ def verifier_generate_text(verifier_pipe, prompt, max_new_tokens):
         You are a math question verifier.
         Please answer '\\boxed{yes}' or '\\boxed{no}' and the reasons to verify whether the to be verified step has calculation error or logical inconsistency based on the context.
         If one step is previous mentioned, it's a minor mistake, so just output \\boxed{yes}.
-        If the 'to be verified step' contains repetitive content, Please answer \\boxed{no}.
-        Your response should be in the form of: results:\\boxed{no/yes} \n reasons:"""
+        If the 'to be verified step' contains repetitive content, Please answer \\boxed{no}."""
         },        #Output \\boxed{yes} as much as possible, since we could accept minor mistake.If it's not a fatal error, please answer \\boxed{yes}.
          {
             "role": "assistant",
@@ -350,52 +349,57 @@ def verifier_generate_text(verifier_pipe, prompt, max_new_tokens):
         {
             "role": "user",
             "content": """
-        Context: Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?
+        Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?   
+        Context: 
         Step 1: to determine the asymptotes, we should find the zero point of $y=\\frac{2}{x^2+x-6}$.
         Step 4: the asymptotes for $x^2+x-6$ should be x=2 and x = -3.
-        To be verified step: 
-        So the number of asymptotes should be 2.
+        Verify step: Step 5:So the number of asymptotes should be 2.
+        Is this step correct?(Yes/No).
+        If the step is incorrect (No), please provide the following: **Explanation:** Explain why the original step is incorrect. And respond \\boxed{{No}} on a new line.
+        If the step is correct (Yes), please provide the following: **Explanation:** Explain why the original step is correct. And respond \\boxed{{Yes}}, on a new line.
+
         """,
         },
         {
             "role": "assistant",
-            "content": """
-         results:\\boxed{yes}
-        \\reasons: since the asymptotes for $x^2+x-6$ is x=2 and x=-3, the number of asymptotes should be 2.
-         """,
+            "content": """**Explanation:**since the asymptotes for $x^2+x-6$ is x=2 and x=-3, the number of asymptotes should be 2. 
+            \\boxed{Yes}.""",
         },
         {
             "role": "user",
             "content": """
-         Context: Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?
+        Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?
+        Context: 
         Step 1: to determine the asymptotes, we should find the zero point of $y=\\frac{2}{x^2+x-6}$.
-        To be verified step: 
-        factor $x^2+x-6$, which is $(x-3)(x+2)$
+        Verify step: Step 2: factor $x^2+x-6$, which is $(x-3)(x+2)$
+        Is this step correct?(Yes/No).
+        If the step is incorrect (No), please provide the following: **Explanation:** Explain why the original step is incorrect. And respond \\boxed{{No}} on a new line.
+        If the step is correct (Yes), please provide the following: **Explanation:** Explain why the original step is correct. And respond \\boxed{{Yes}}, on a new line.
         """,
         },
         {
             "role": "assistant",
-            "content": """
-         results:\\boxed{no}
-        \\reasons: $x^2+x-6$ doesn't equal to $(x-3)(x+2)$ but $(x-2)(x+3)$.
-        """,
+            "content": """**Explanation:** $x^2+x-6$ doesn't equal to $(x-3)(x+2)$ but $(x-2)(x+3)$. 
+            \\boxed{No}.""",
             # \\reasons: $x^2+x-6$ doesn't equal to $(x-3)(x+2)$ but $(x-2)(x+3)$.
         },
         {
             "role": "user",
             "content": """
-        Context: Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?
+        Question: How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?
+        Context: 
         Step 1: to determine the asymptotes, we should find the zero point of $y=\\frac{2}{x^2+x-6}$.
         Step 4: the asymptotes for $x^2+x-6$ should be x=2 and x = -3.
-        To be verified step: 
-        So the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.
+        Verify step: Step 5: So the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.the number of asymptotes should be 2.
+        Is this step correct?(Yes/No).
+        If the step is incorrect (No), please provide the following: **Explanation:** Explain why the original step is incorrect. And respond \\boxed{{No}} on a new line.
+        If the step is correct (Yes), please provide the following: **Explanation:** Explain why the original step is correct. And respond \\boxed{{Yes}}, on a new line.
         """,
         },
         {
             "role": "assistant",
-            "content": """
-         results:\\boxed{No}
-        \\reasons: The to be verifier step contains repetitive content. Please remove duplicate content.
+            "content": """**Explanation:**The to be verifier step contains repetitive content. Please remove duplicate content.
+            \\boxed{No}.
          """,
         },
         {"role": "user", "content": prompt},
@@ -437,7 +441,7 @@ verifier_prompt_template = """
     
     #####    
 """
-verifier_prompt_template2 = "Context:{Context} \n To be verified step: {verified_step}\n"
+verifier_prompt_template2 = "Question: {Question}\n Context:{Context} \n Verify step: {verified_step}\n"
 
 self_refine_template = """
 You are a math problem solver.Since the last step is incorrect, now you have to regenerate the last step based on the previous step, question and instruction.
